@@ -1,0 +1,32 @@
+version: "3.9"
+services:
+  api:
+    image: node:18-alpine
+    working_dir: /app
+    volumes:
+      - ./backend-express:/app
+      - ./backend-express/data.db:/app/data.db
+      - ./backend-express/uploads:/app/uploads
+    ports:
+      - "3001:3001"
+    environment:
+      PORT: 3001
+      DB_PATH: /app/data.db
+      UPLOAD_DIR: /app/uploads
+      ADMIN_USER: ${ADMIN_USER:-admin}
+      ADMIN_PASS: ${ADMIN_PASS:-admin}
+      ADMIN_SECRET: ${ADMIN_SECRET:-secret123}
+    command: sh -c "npm install && npm run dev"
+
+  web:
+    image: node:18-alpine
+    working_dir: /app
+    volumes:
+      - ./frontend-next:/app
+    environment:
+      NEXT_PUBLIC_API_BASE: http://localhost:3001
+    ports:
+      - "3000:3000"
+    command: sh -c "npm install && npm run dev"
+    depends_on:
+      - api
