@@ -4,12 +4,38 @@ import Footer from "../../components/Footer";
 import Link from "next/link";
 import "../css/listing.css";
 import "../css/rent.css";
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { apiFetch, normalizeImageUrl, PropertyApi } from "@/lib/api";
 import { money, renderStars } from "@/lib/format";
 
 export default function PropertyPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="page-wrapper" id="page-wrapper-id" data-page="property">
+          <main className="main-wrapper">
+            <HeaderMinimal />
+            <section className="padding-section-large rent-detail">
+              <div className="padding-global">
+                <div className="container-large">
+                  <div className="rent-card">
+                    <div className="heading-style-h2">Memuat properti...</div>
+                  </div>
+                </div>
+              </div>
+            </section>
+            <Footer />
+          </main>
+        </div>
+      }
+    >
+      <PropertyPageContent />
+    </Suspense>
+  );
+}
+
+function PropertyPageContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const propertyId = searchParams.get("id") || "";
