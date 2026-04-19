@@ -77,8 +77,27 @@ export function normalizeImageUrl(src: string): string {
 export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(makeApiUrl(path), init);
   if (!response.ok) {
-    const text = await response.text();
-    throw new Error(text || `Request failed with status ${response.status}`);
+    const fallbackMessage = `Request failed with status ${response.status}`;
+    const contentType = response.headers.get("content-type") || "";
+    let message = "";
+
+    if (contentType.includes("application/json")) {
+      try {
+        const payload = (await response.json()) as { message?: unknown };
+        if (typeof payload?.message === "string" && payload.message.trim()) {
+          message = payload.message.trim();
+        }
+      } catch (_error) {
+        // Fall through and try reading text body if JSON parsing fails.
+      }
+    }
+
+    if (!message) {
+      const text = await response.text();
+      message = text || fallbackMessage;
+    }
+
+    throw new Error(message);
   }
   return (await response.json()) as T;
 }

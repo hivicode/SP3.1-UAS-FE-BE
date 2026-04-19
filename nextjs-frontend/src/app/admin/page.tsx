@@ -235,8 +235,15 @@ export default function AdminPage() {
       setAdminToken(result.token);
       setToken(result.token);
       await loadDashboard(result.token);
-    } catch {
-      setLoginError("Username atau password salah.");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "";
+      if (/failed to fetch/i.test(message)) {
+        setLoginError("Gagal terhubung ke server API. Cek NEXT_PUBLIC_API_URL dan CORS.");
+      } else if (message) {
+        setLoginError(message);
+      } else {
+        setLoginError("Username atau password salah.");
+      }
     } finally {
       setBusyAction("");
     }

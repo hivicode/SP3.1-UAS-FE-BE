@@ -6,8 +6,8 @@ function issueToken(user) {
 }
 
 async function login(req, res) {
-  const username = String(req.body?.username || "");
-  const password = String(req.body?.password || "");
+  const username = String(req.body?.username || "").trim();
+  const password = String(req.body?.password || "").trim();
 
   // Keep parity with Flask credentials for initial migration.
   if (username !== "admin" || password !== "admin") {
