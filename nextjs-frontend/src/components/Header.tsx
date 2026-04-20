@@ -2,6 +2,8 @@
 import Link from "next/link";
 import React, { useEffect, useState } from "react";
 
+const MOBILE_BREAKPOINT = 991;
+
 export default function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
@@ -25,6 +27,22 @@ export default function Header() {
       document.body.style.overflow = "";
     };
   }, [isMenuOpen]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const syncMenuWithViewport = () => {
+      if (window.innerWidth > MOBILE_BREAKPOINT) {
+        setIsMenuOpen(false);
+      }
+    };
+
+    syncMenuWithViewport();
+    window.addEventListener("resize", syncMenuWithViewport);
+    return () => {
+      window.removeEventListener("resize", syncMenuWithViewport);
+    };
+  }, []);
 
   const closeMenu = () => setIsMenuOpen(false);
 
