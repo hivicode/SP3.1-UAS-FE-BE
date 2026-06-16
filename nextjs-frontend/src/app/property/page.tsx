@@ -70,17 +70,17 @@ function PropertyPageContent() {
   );
   const currentImage = images[activeImage] || images[0] || "";
 
-  const handleBuy = () => {
+  const handleInquiry = () => {
     if (!property) return;
     window.localStorage.setItem(
-      "planb_purchase",
+      "planb_inquiry",
       JSON.stringify({
         propertyId: property.kode_rumah,
         bookingFee,
         createdAt: Date.now(),
       })
     );
-    router.push("/checkout");
+    router.push("/inquiry");
   };
 
   return (
@@ -94,9 +94,9 @@ function PropertyPageContent() {
               <nav aria-label="Breadcrumb" className="rent-breadcrumb">
                 <Link href="/" className="rent-breadcrumb-link">Home</Link>
                 <span className="rent-breadcrumb-separator">/</span>
-                <Link href="/listing" className="rent-breadcrumb-link">Listing</Link>
+                <Link href="/listing" className="rent-breadcrumb-link">Katalog</Link>
                 <span className="rent-breadcrumb-separator">/</span>
-                <span className="rent-breadcrumb-current">Properties</span>
+                <span className="rent-breadcrumb-current">Detail Rumah</span>
               </nav>
 
               {loading && (
@@ -109,7 +109,7 @@ function PropertyPageContent() {
                 <div className="rent-card">
                   <div className="heading-style-h2">Properti tidak ditemukan</div>
                   <div className="text-size-small text-style-muted">
-                    Kembali ke listing untuk pilih properti.
+                    Kembali ke katalog untuk pilih rumah.
                   </div>
                 </div>
               )}
@@ -153,8 +153,8 @@ function PropertyPageContent() {
                       </div>
 
                       <div className="rent-kpis">
-                        <div className="rent-chip"><span className="material-symbols-rounded">bed</span>{property.kamar_tidur} Beds</div>
-                        <div className="rent-chip"><span className="material-symbols-rounded">bathtub</span>{property.kamar_mandi} Baths</div>
+                        <div className="rent-chip"><span className="material-symbols-rounded">bed</span>{property.kamar_tidur} Kamar tidur</div>
+                        <div className="rent-chip"><span className="material-symbols-rounded">bathtub</span>{property.kamar_mandi} Kamar mandi</div>
                         <div className="rent-chip"><span className="material-symbols-rounded">square_foot</span>{property.luas_bangunan} m²</div>
                         <div className="rent-chip"><span className="material-symbols-rounded">garage</span>{property.garasi} Garages</div>
                       </div>
@@ -164,7 +164,7 @@ function PropertyPageContent() {
                       </div>
 
                       <div>
-                        <div className="text-style-allcaps text-size-small">Amenities</div>
+                        <div className="text-style-allcaps text-size-small">Fasilitas</div>
                         <div className="rent-kpis" style={{ marginTop: ".5rem" }}>
                           {(property.fitur || []).map((feature) => (
                             <div key={feature} className="rent-chip">
@@ -181,30 +181,33 @@ function PropertyPageContent() {
                       <div className="rent-booking-head">
                         <div className="rent-booking-price">{money(property.harga)}</div>
                         <div className="text-size-small text-style-muted">
-                          {renderStars(property.rating)} {Number(property.rating || 0).toFixed(1)}
+                          Harga rumah. Admin akan menghubungi untuk detail unit dan jadwal kunjungan.
                         </div>
                       </div>
 
                       <div className="rent-booking-form">
                         <div className="rent-field">
                           <label className="text-size-small text-style-allcaps" htmlFor="bookingFee">
-                            Booking fee (opsional)
+                            Booking fee opsional
                           </label>
                           <input
                             id="bookingFee"
                             className="form-field w-input"
                             inputMode="numeric"
-                            placeholder="5000000"
+                            placeholder="0"
                             value={bookingFee}
                             onChange={(event) => setBookingFee(Number(event.target.value) || 0)}
                           />
+                          <div className="text-size-small text-style-muted">
+                            Kosongkan jika hanya ingin bertanya dulu. Isi nominal jika ingin minta admin menyiapkan instruksi booking fee.
+                          </div>
                         </div>
 
                         <button
                           id="buyBtn"
                           type="button"
                           className="button w-inline-block rent-primary-btn"
-                          onClick={handleBuy}
+                          onClick={handleInquiry}
                           disabled={property.status !== "available"}
                         >
                           <div className="button-text">
@@ -213,16 +216,16 @@ function PropertyPageContent() {
                                 ? "Sold"
                                 : property.status === "onbook"
                                   ? "On Book"
-                                  : "Ajukan Pembelian"}
+                                  : "Saya Tertarik"}
                             </div>
                             <div className="button-text-animation">
-                              <div className="button_text">Ajukan Pembelian</div>
+                              <div className="button_text">Saya Tertarik</div>
                             </div>
                           </div>
                         </button>
 
                         <div className="text-size-small text-style-muted">
-                          Isi booking fee jika ingin mengunci unit, lalu lanjut ke checkout.
+                          Setelah form minat dikirim, admin PlanB akan menghubungi Anda melalui WhatsApp/telepon.
                         </div>
                       </div>
                     </div>

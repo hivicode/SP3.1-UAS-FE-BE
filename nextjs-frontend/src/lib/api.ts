@@ -22,6 +22,7 @@ export type PropertyApi = {
 
 export type BookingApi = {
   id: number;
+  kode_inquiry: string;
   kode_rumah: string;
   nama_depan: string;
   nama_belakang: string;
@@ -29,7 +30,17 @@ export type BookingApi = {
   telepon: string;
   metode_pembayaran: string;
   booking_fee: number;
-  status: "pending" | "confirmed" | "cancelled" | string;
+  status:
+    | "new"
+    | "contacted"
+    | "booking_fee_pending"
+    | "reserved"
+    | "closed"
+    | "cancelled"
+    | string;
+  catatan: string;
+  jadwal_kunjungan: string | null;
+  preferensi_kontak: string;
   dibuat_pada: string;
   nama_rumah: string;
   alamat: string;

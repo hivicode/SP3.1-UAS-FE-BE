@@ -33,12 +33,12 @@ async function getFinanceReport(req, res, next) {
     const salesRows = await query(
       `SELECT
          EXTRACT(MONTH FROM b.dibuat_pada)::int AS bulan,
-         COUNT(*) AS total_transaksi,
-         COALESCE(SUM(p.harga), 0) AS total_penjualan,
-         COALESCE(SUM(b.booking_fee), 0) AS total_booking_fee
+         COUNT(*) FILTER (WHERE b.status = 'closed') AS total_transaksi,
+         COALESCE(SUM(CASE WHEN b.status = 'closed' THEN p.harga ELSE 0 END), 0) AS total_penjualan,
+         COALESCE(SUM(CASE WHEN b.status IN ('reserved', 'closed') THEN b.booking_fee ELSE 0 END), 0) AS total_booking_fee
        FROM booking b
        JOIN properti p ON p.kode_rumah = b.kode_rumah
-       WHERE b.status = 'confirmed'
+       WHERE b.status IN ('reserved', 'closed')
          AND EXTRACT(YEAR FROM b.dibuat_pada)::int = $1
        GROUP BY EXTRACT(MONTH FROM b.dibuat_pada)`,
       [year]

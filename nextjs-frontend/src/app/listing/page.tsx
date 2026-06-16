@@ -122,14 +122,14 @@ export default function ListingPage() {
               <nav aria-label="Breadcrumb" className="rent-breadcrumb">
                 <Link href="/" className="rent-breadcrumb-link">Home</Link>
                 <span className="rent-breadcrumb-separator">/</span>
-                <span className="rent-breadcrumb-current">Listing</span>
+                <span className="rent-breadcrumb-current">Katalog</span>
               </nav>
 
               <div className="contact-component rent-page">
                 <div className="contact_header">
                   <img src="https://wubflow-shield.nocodexport.dev/685077c466f113761c6d796b/6853ff8bb7215267b2f31695_Kaleo_Icon.svg" loading="lazy" alt="Kaleo Icon" className="hero-icon"/>
-                  <h1 className="heading-style-h1 is-contact">Listing Properti</h1>
-                  <p className="text-size-large text-align-center max-width-large">Temukan hunian PlanB yang paling cocok untuk ritme hidupmu.</p>
+                  <h1 className="heading-style-h1 is-contact">Katalog Rumah</h1>
+                  <p className="text-size-large text-align-center max-width-large">Pilih rumah PlanB yang cocok, lihat detailnya, lalu kirim minat agar admin menghubungi Anda.</p>
                 </div>
 
                 <div className="rent-toolbar">
@@ -154,7 +154,7 @@ export default function ListingPage() {
                       <option value="featured">Sort by: Featured</option>
                       <option value="priceAsc">Harga: Terendah</option>
                       <option value="priceDesc">Harga: Tertinggi</option>
-                      <option value="bedsDesc">Bedrooms: Terbanyak</option>
+                      <option value="bedsDesc">Kamar tidur: Terbanyak</option>
                       <option value="ratingDesc">Rating: Tertinggi</option>
                     </select>
 
@@ -206,7 +206,7 @@ export default function ListingPage() {
                     </div>
 
                     <div className="rent-field">
-                      <label className="text-size-small text-style-allcaps">Bedrooms</label>
+                      <label className="text-size-small text-style-allcaps">Kamar tidur</label>
                       <select
                         id="bedroomsSelect"
                         className="form-field w-input"
@@ -350,9 +350,9 @@ export default function ListingPage() {
                   <section className="rent-results" aria-label="Results">
                     <div className="rent-results-head">
                       <div>
-                        <div className="heading-style-h2 rent-subtitle">Available Properties</div>
+                        <div className="heading-style-h2 rent-subtitle">Rumah Tersedia</div>
                         <div id="foundLabel" className="text-size-small text-style-muted">
-                          {loading ? "Loading properties..." : `${filtered.length} properties found`}
+                          {loading ? "Memuat rumah..." : `${filtered.length} rumah ditemukan`}
                         </div>
                       </div>
 
@@ -390,12 +390,12 @@ export default function ListingPage() {
                               <div className="rent-card-meta">
                                 <span>{renderStars(property.rating)} {Number(property.rating || 0).toFixed(1)}</span>
                                 <span>
-                                  {property.kamar_tidur} bedrooms · {property.kamar_mandi} bathrooms · {property.luas_bangunan} m² · {property.garasi} garages
+                                  {property.kamar_tidur} kamar tidur · {property.kamar_mandi} kamar mandi · {property.luas_bangunan} m² · {property.garasi} garasi
                                 </span>
                               </div>
                               <div className="rent-card-price">
                                 <div className="rent-price">{money(property.harga)}</div>
-                                <div className="rent-link-btn">View</div>
+                                <div className="rent-link-btn">Lihat Rumah</div>
                               </div>
                             </div>
                           </Link>

@@ -33,7 +33,27 @@ type PropertyFormState = {
   deskripsi: string;
 };
 
-type AdminView = "dashboard" | "customers" | "create" | "finance";
+type AdminView = "dashboard" | "inquiries" | "create" | "finance";
+type InquiryStatus =
+  | "new"
+  | "contacted"
+  | "booking_fee_pending"
+  | "reserved"
+  | "closed"
+  | "cancelled";
+
+const INQUIRY_STATUS_OPTIONS: Array<{ value: InquiryStatus; label: string }> = [
+  { value: "new", label: "Baru" },
+  { value: "contacted", label: "Sudah dihubungi" },
+  { value: "booking_fee_pending", label: "Menunggu booking fee" },
+  { value: "reserved", label: "Booking fee diterima" },
+  { value: "closed", label: "Deal/closed" },
+  { value: "cancelled", label: "Batal" },
+];
+
+function inquiryStatusLabel(status: string) {
+  return INQUIRY_STATUS_OPTIONS.find((item) => item.value === status)?.label || status;
+}
 
 const emptyForm: PropertyFormState = {
   kode_rumah: "",
@@ -77,11 +97,18 @@ export default function AdminPage() {
   const isEditing = Boolean(editCode);
 
   const bookingStats = useMemo(() => {
-    const base = { total: bookings.length, pending: 0, confirmed: 0, cancelled: 0 };
+    const base = {
+      total: bookings.length,
+      new: 0,
+      contacted: 0,
+      booking_fee_pending: 0,
+      reserved: 0,
+      closed: 0,
+      cancelled: 0,
+    };
     bookings.forEach((item) => {
-      if (item.status === "pending") base.pending += 1;
-      if (item.status === "confirmed") base.confirmed += 1;
-      if (item.status === "cancelled") base.cancelled += 1;
+      const status = item.status as InquiryStatus;
+      if (status in base) base[status] += 1;
     });
     return base;
   }, [bookings]);
@@ -322,7 +349,7 @@ export default function AdminPage() {
     }
   };
 
-  const updateBookingStatus = async (bookingId: number, status: "pending" | "confirmed" | "cancelled") => {
+  const updateBookingStatus = async (bookingId: number, status: InquiryStatus) => {
     if (!token) return;
     setBusyAction(`booking-${bookingId}`);
     try {
@@ -425,8 +452,8 @@ export default function AdminPage() {
           <button className={`admin-nav-btn ${view === "dashboard" ? "active" : ""}`} type="button" onClick={() => setView("dashboard")}>
             Dashboard
           </button>
-          <button className={`admin-nav-btn ${view === "customers" ? "active" : ""}`} type="button" onClick={() => setView("customers")}>
-            Customer
+          <button className={`admin-nav-btn ${view === "inquiries" ? "active" : ""}`} type="button" onClick={() => setView("inquiries")}>
+            Inquiry
           </button>
           <button className={`admin-nav-btn ${view === "create" ? "active" : ""}`} type="button" onClick={() => setView("create")}>
             {isEditing ? "Edit Properti" : "Tambah Properti"}
@@ -463,10 +490,10 @@ export default function AdminPage() {
                 <div className="admin-muted">Kategori terbanyak.</div>
               </div>
               <div className="admin-stat-card">
-                <div className="admin-stat-title">Status Booking</div>
+                <div className="admin-stat-title">Inquiry Masuk</div>
                 <div className="admin-stat-value">{bookingStats.total}</div>
                 <div className="admin-muted">
-                  Pending: {bookingStats.pending}, Confirmed: {bookingStats.confirmed}, Cancelled: {bookingStats.cancelled}
+                  Baru: {bookingStats.new}, Dihubungi: {bookingStats.contacted}, Booking fee: {bookingStats.reserved}
                 </div>
               </div>
             </div>
@@ -568,24 +595,25 @@ export default function AdminPage() {
           </>
         )}
 
-        {view === "customers" && (
+        {view === "inquiries" && (
           <>
             <div className="admin-header">
               <div>
-                <h1 className="admin-title">Customer</h1>
-                <p className="admin-subtitle">Daftar booking dan kontak pelanggan terbaru.</p>
+                <h1 className="admin-title">Inquiry</h1>
+                <p className="admin-subtitle">Minat calon pembeli yang perlu dihubungi admin.</p>
               </div>
             </div>
             <section className="admin-card">
-              {!bookings.length && <p className="admin-muted">Belum ada booking masuk.</p>}
+              {!bookings.length && <p className="admin-muted">Belum ada inquiry masuk.</p>}
               {bookings.length > 0 && (
                 <table className="admin-table">
                   <thead>
                     <tr>
+                      <th>Kode</th>
                       <th>Nama</th>
                       <th>Properti</th>
                       <th>Kontak</th>
-                      <th>Metode</th>
+                      <th>Minat</th>
                       <th>Status</th>
                       <th>Booking Fee</th>
                       <th>Tanggal</th>
@@ -595,8 +623,16 @@ export default function AdminPage() {
                     {bookings.map((booking) => (
                       <tr key={booking.id}>
                         <td>
+                          <strong>{booking.kode_inquiry}</strong>
+                          {booking.jadwal_kunjungan && (
+                            <div className="admin-muted">
+                              Visit: {new Date(booking.jadwal_kunjungan).toLocaleString("id-ID")}
+                            </div>
+                          )}
+                        </td>
+                        <td>
                           <strong>{booking.nama_depan} {booking.nama_belakang}</strong>
-                          <div className="admin-muted">ID {booking.id}</div>
+                          <div className="admin-muted">ID internal {booking.id}</div>
                         </td>
                         <td>
                           <div>{booking.nama_rumah}</div>
@@ -605,25 +641,32 @@ export default function AdminPage() {
                         <td>
                           <div>{booking.email}</div>
                           <div className="admin-muted">{booking.telepon}</div>
+                          <div className="admin-muted">Preferensi: {booking.preferensi_kontak}</div>
                         </td>
-                        <td>{booking.metode_pembayaran}</td>
+                        <td>
+                          <div>{booking.metode_pembayaran}</div>
+                          {booking.catatan && <div className="admin-muted">{booking.catatan}</div>}
+                        </td>
                         <td>
                           <div className="admin-actions">
                             <select
                               className="admin-select"
-                              defaultValue={booking.status}
+                              value={booking.status}
                               onChange={(event) =>
                                 updateBookingStatus(
                                   booking.id,
-                                  event.target.value as "pending" | "confirmed" | "cancelled"
+                                  event.target.value as InquiryStatus
                                 )
                               }
                               disabled={busyAction === `booking-${booking.id}`}
                             >
-                              <option value="pending">pending</option>
-                              <option value="confirmed">confirmed</option>
-                              <option value="cancelled">cancelled</option>
+                              {INQUIRY_STATUS_OPTIONS.map((option) => (
+                                <option key={option.value} value={option.value}>
+                                  {option.label}
+                                </option>
+                              ))}
                             </select>
+                            <div className="admin-muted">{inquiryStatusLabel(booking.status)}</div>
                           </div>
                         </td>
                         <td>{money(booking.booking_fee)}</td>
@@ -645,7 +688,7 @@ export default function AdminPage() {
               <div>
                 <h1 className="admin-title">Laporan Keuangan</h1>
                 <p className="admin-subtitle">
-                  Penjualan terkonfirmasi dikurangi biaya operasional per bulan.
+                  Penjualan closed dan booking fee diterima dikurangi biaya operasional per bulan.
                 </p>
               </div>
               <div className="admin-actions">
@@ -664,9 +707,9 @@ export default function AdminPage() {
             {financeReport && (
               <div className="admin-stats" style={{ marginBottom: "1rem" }}>
                 <div className="admin-stat-card">
-                  <div className="admin-stat-title">Total Penjualan ({financeReport.tahun})</div>
+                  <div className="admin-stat-title">Penjualan Closed ({financeReport.tahun})</div>
                   <div className="admin-stat-value">{money(financeReport.summary.total_penjualan)}</div>
-                  <div className="admin-muted">{financeReport.summary.total_transaksi} transaksi confirmed</div>
+                  <div className="admin-muted">{financeReport.summary.total_transaksi} transaksi closed</div>
                 </div>
                 <div className="admin-stat-card">
                   <div className="admin-stat-title">Biaya Operasional</div>
@@ -676,7 +719,7 @@ export default function AdminPage() {
                 <div className="admin-stat-card">
                   <div className="admin-stat-title">Laba Bersih</div>
                   <div className="admin-stat-value">{money(financeReport.summary.total_laba_bersih)}</div>
-                  <div className="admin-muted">Penjualan - biaya operasional</div>
+                  <div className="admin-muted">Penjualan closed - biaya operasional</div>
                 </div>
               </div>
             )}

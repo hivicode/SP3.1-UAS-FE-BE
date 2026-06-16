@@ -1,7 +1,16 @@
 const path = require("path");
 
 const ALLOWED_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".gif", ".webp"]);
-const BOOKING_STATUSES = new Set(["pending", "confirmed", "cancelled"]);
+const BOOKING_STATUSES = new Set([
+  "new",
+  "contacted",
+  "booking_fee_pending",
+  "reserved",
+  "closed",
+  "cancelled",
+  "pending",
+  "confirmed",
+]);
 
 function parseFitur(raw) {
   if (raw == null) return [];
@@ -65,6 +74,7 @@ function serializeProperty(row, images, status = "available") {
 function serializeBooking(row) {
   return {
     id: Number(row.id),
+    kode_inquiry: row.kode_inquiry || `INQ-${String(row.id).padStart(6, "0")}`,
     kode_rumah: row.kode_rumah,
     nama_depan: row.nama_depan,
     nama_belakang: row.nama_belakang,
@@ -73,6 +83,12 @@ function serializeBooking(row) {
     metode_pembayaran: row.metode_pembayaran,
     booking_fee: Number(row.booking_fee),
     status: row.status,
+    catatan: row.catatan || "",
+    jadwal_kunjungan:
+      row.jadwal_kunjungan instanceof Date
+        ? row.jadwal_kunjungan.toISOString()
+        : row.jadwal_kunjungan,
+    preferensi_kontak: row.preferensi_kontak || "whatsapp",
     dibuat_pada:
       row.dibuat_pada instanceof Date ? row.dibuat_pada.toISOString() : row.dibuat_pada,
     nama_rumah: row.nama_rumah,

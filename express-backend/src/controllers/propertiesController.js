@@ -25,8 +25,8 @@ async function getPropertyStatus(kodeRumah) {
   if (!row) return "available";
 
   const status = String(row.status || "").toLowerCase();
-  if (status === "confirmed") return "sold";
-  if (status === "pending") return "onbook";
+  if (status === "closed" || status === "confirmed") return "sold";
+  if (["booking_fee_pending", "reserved", "pending"].includes(status)) return "onbook";
   return "available";
 }
 
