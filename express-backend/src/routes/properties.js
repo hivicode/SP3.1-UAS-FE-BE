@@ -1,25 +1,15 @@
 const express = require("express");
 const multer = require("multer");
-const fs = require("fs");
-const { uploadDir } = require("../config");
 const {
   listProperties,
   getProperty,
   createProperty,
   updateProperty,
   deleteProperty,
-  uploadFilename,
 } = require("../controllers/propertiesController");
 const { authRequired } = require("../middleware/auth");
 
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
-
-const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => cb(null, uploadDir),
-  filename: uploadFilename,
-});
+const storage = multer.memoryStorage();
 const upload = multer({ storage });
 
 const router = express.Router();

@@ -23,4 +23,7 @@ module.exports = {
   corsOrigin: process.env.CORS_ORIGIN || "*",
   jwtSecret: process.env.JWT_SECRET || "secret123",
   uploadDir,
+  supabaseUrl: process.env.SUPABASE_URL || "",
+  supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || "",
+  supabaseStorageBucket: process.env.SUPABASE_STORAGE_BUCKET || "property-images",
 };

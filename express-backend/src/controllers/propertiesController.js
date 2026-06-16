@@ -1,6 +1,3 @@
-const fs = require("fs");
-const path = require("path");
-const { randomUUID } = require("crypto");
 const { query, pool } = require("../db/pool");
 const {
   parseFitur,
@@ -9,19 +6,14 @@ const {
   serializeProperty,
   isAllowedImage,
 } = require("../utils/helpers");
-const { uploadDir } = require("../config");
-
-function absoluteFileFromPublicUrl(publicPath = "") {
-  const filename = publicPath.replace(/^\/uploads\//, "");
-  return path.join(uploadDir, filename);
-}
+const { uploadImageFile, removeImagesFromStorage } = require("../storage/supabaseStorage");
 
 async function getPropertyImages(kodeRumah) {
   const rows = await query(
     "SELECT filename FROM properti_gambar WHERE kode_rumah = $1 ORDER BY id ASC",
     [kodeRumah]
   );
-  return rows.map((row) => `/uploads/${row.filename}`);
+  return rows.map((row) => row.filename);
 }
 
 async function getPropertyStatus(kodeRumah) {
@@ -38,19 +30,17 @@ async function getPropertyStatus(kodeRumah) {
   return "available";
 }
 
-function saveImageFiles(files) {
-  return files
+async function uploadImageFiles(files, kodeRumah) {
+  const validFiles = files
     .filter((file) => file && file.originalname && isAllowedImage(file.originalname))
-    .map((file) => file.filename);
-}
+    .filter((file) => file.buffer && file.buffer.length > 0);
 
-function removeImages(publicPaths = []) {
-  for (const publicPath of publicPaths) {
-    const target = absoluteFileFromPublicUrl(publicPath);
-    if (fs.existsSync(target)) {
-      fs.unlinkSync(target);
-    }
+  const uploads = [];
+  for (const file of validFiles) {
+    uploads.push(await uploadImageFile(file, `properties/${kodeRumah}`));
   }
+
+  return uploads;
 }
 
 async function listProperties(req, res, next) {
@@ -100,9 +90,11 @@ async function getProperty(req, res, next) {
 
 async function createProperty(req, res, next) {
   const client = await pool.connect();
+  let kodeRumah = "";
+  const uploadedImages = [];
   try {
     const payload = req.body || {};
-    const kodeRumah = String(payload.kode_rumah || "").trim();
+    kodeRumah = String(payload.kode_rumah || "").trim();
     if (!kodeRumah) {
       return res.status(400).json({ message: "kode_rumah wajib diisi" });
     }
@@ -132,11 +124,11 @@ async function createProperty(req, res, next) {
       ]
     );
 
-    const filenames = saveImageFiles(req.files || []);
-    for (const filename of filenames) {
+    uploadedImages.push(...(await uploadImageFiles(req.files || [], kodeRumah)));
+    for (const image of uploadedImages) {
       await client.query(
         "INSERT INTO properti_gambar (kode_rumah, filename) VALUES ($1, $2)",
-        [kodeRumah, filename]
+        [kodeRumah, image.publicUrl]
       );
     }
     await client.query("COMMIT");
@@ -147,6 +139,9 @@ async function createProperty(req, res, next) {
     return res.status(201).json(serializeProperty(row, images, "available"));
   } catch (error) {
     await client.query("ROLLBACK");
+    if (uploadedImages.length > 0) {
+      await removeImagesFromStorage(uploadedImages.map((image) => image.publicUrl)).catch(() => {});
+    }
     if (error.code === "23505") {
       return res.status(400).json({ message: "kode_rumah sudah terpakai" });
     }
@@ -158,6 +153,8 @@ async function createProperty(req, res, next) {
 
 async function updateProperty(req, res, next) {
   const client = await pool.connect();
+  const uploadedImages = [];
+  let oldImageUrls = [];
   try {
     const { kode } = req.params;
     const existingResult = await client.query(
@@ -208,31 +205,40 @@ async function updateProperty(req, res, next) {
       ]
     );
 
-    const incomingFiles = saveImageFiles(req.files || []);
+    const incomingFiles = (req.files || [])
+      .filter((file) => file && file.originalname && isAllowedImage(file.originalname))
+      .filter((file) => file.buffer && file.buffer.length > 0);
     if (incomingFiles.length > 0) {
       const oldImageResult = await client.query(
         "SELECT filename FROM properti_gambar WHERE kode_rumah = $1",
         [kode]
       );
       const oldImageRows = oldImageResult.rows;
+      oldImageUrls = oldImageRows.map((row) => row.filename);
+      uploadedImages.push(...(await uploadImageFiles(incomingFiles, kode)));
       await client.query("DELETE FROM properti_gambar WHERE kode_rumah = $1", [kode]);
-      removeImages(oldImageRows.map((row) => `/uploads/${row.filename}`));
 
-      for (const filename of incomingFiles) {
+      for (const image of uploadedImages) {
         await client.query(
           "INSERT INTO properti_gambar (kode_rumah, filename) VALUES ($1, $2)",
-          [kode, filename]
+          [kode, image.publicUrl]
         );
       }
     }
 
     await client.query("COMMIT");
+    if (oldImageUrls.length > 0) {
+      await removeImagesFromStorage(oldImageUrls).catch(() => {});
+    }
 
     const updatedRow = (await query("SELECT * FROM properti WHERE kode_rumah = $1", [kode]))[0];
     const images = await getPropertyImages(kode);
     return res.json(serializeProperty(updatedRow, images, await getPropertyStatus(kode)));
   } catch (error) {
     await client.query("ROLLBACK");
+    if (uploadedImages.length > 0) {
+      await removeImagesFromStorage(uploadedImages.map((image) => image.publicUrl)).catch(() => {});
+    }
     return next(error);
   } finally {
     client.release();
@@ -249,19 +255,17 @@ async function deleteProperty(req, res, next) {
     );
     const imageRows = imageResult.rows;
 
+    await client.query("BEGIN");
     await client.query("DELETE FROM properti WHERE kode_rumah = $1", [kode]);
-    removeImages(imageRows.map((row) => `/uploads/${row.filename}`));
+    await client.query("COMMIT");
+    await removeImagesFromStorage(imageRows.map((row) => row.filename)).catch(() => {});
     return res.json({ message: "Properti dihapus" });
   } catch (error) {
+    await client.query("ROLLBACK").catch(() => {});
     return next(error);
   } finally {
     client.release();
   }
-}
-
-function uploadFilename(_req, file, cb) {
-  const ext = path.extname(file.originalname).toLowerCase();
-  cb(null, `${randomUUID().replace(/-/g, "")}${ext}`);
 }
 
 module.exports = {
@@ -270,5 +274,4 @@ module.exports = {
   createProperty,
   updateProperty,
   deleteProperty,
-  uploadFilename,
 };
