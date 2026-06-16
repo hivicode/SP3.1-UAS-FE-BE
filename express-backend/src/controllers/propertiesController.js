@@ -1,6 +1,6 @@
 const fs = require("fs");
 const path = require("path");
-const { v4: uuidv4 } = require("uuid");
+const { randomUUID } = require("crypto");
 const { query, pool } = require("../db/pool");
 const {
   parseFitur,
@@ -261,7 +261,7 @@ async function deleteProperty(req, res, next) {
 
 function uploadFilename(_req, file, cb) {
   const ext = path.extname(file.originalname).toLowerCase();
-  cb(null, `${uuidv4().replace(/-/g, "")}${ext}`);
+  cb(null, `${randomUUID().replace(/-/g, "")}${ext}`);
 }
 
 module.exports = {
