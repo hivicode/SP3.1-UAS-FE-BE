@@ -32,22 +32,22 @@ async function getFinanceReport(req, res, next) {
 
     const salesRows = await query(
       `SELECT
-         MONTH(b.dibuat_pada) AS bulan,
+         EXTRACT(MONTH FROM b.dibuat_pada)::int AS bulan,
          COUNT(*) AS total_transaksi,
          COALESCE(SUM(p.harga), 0) AS total_penjualan,
          COALESCE(SUM(b.booking_fee), 0) AS total_booking_fee
        FROM booking b
        JOIN properti p ON p.kode_rumah = b.kode_rumah
        WHERE b.status = 'confirmed'
-         AND YEAR(b.dibuat_pada) = ?
-       GROUP BY MONTH(b.dibuat_pada)`,
+         AND EXTRACT(YEAR FROM b.dibuat_pada)::int = $1
+       GROUP BY EXTRACT(MONTH FROM b.dibuat_pada)`,
       [year]
     );
 
     const operationalRows = await query(
       `SELECT bulan, biaya_operasional, catatan
        FROM laporan_operasional
-       WHERE tahun = ?`,
+       WHERE tahun = $1`,
       [year]
     );
 
@@ -134,10 +134,11 @@ async function upsertOperationalCost(req, res, next) {
 
     await query(
       `INSERT INTO laporan_operasional (tahun, bulan, biaya_operasional, catatan)
-       VALUES (?, ?, ?, ?)
-       ON DUPLICATE KEY UPDATE
-         biaya_operasional = VALUES(biaya_operasional),
-         catatan = VALUES(catatan)`,
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (tahun, bulan) DO UPDATE SET
+         biaya_operasional = EXCLUDED.biaya_operasional,
+         catatan = EXCLUDED.catatan,
+         diperbarui_pada = CURRENT_TIMESTAMP`,
       [year, month, biayaOperasional, catatan]
     );
 

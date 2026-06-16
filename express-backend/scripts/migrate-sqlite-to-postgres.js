@@ -22,7 +22,7 @@ function all(db, sql, params = []) {
 
 async function migrate() {
   const db = openSqliteDatabase(sqlitePath);
-  const mysqlConnection = await pool.getConnection();
+  const client = await pool.connect();
   try {
     await runMigrations();
 
@@ -30,19 +30,15 @@ async function migrate() {
     const images = await all(db, "SELECT * FROM properti_gambar");
     const bookings = await all(db, "SELECT * FROM booking");
 
-    await mysqlConnection.beginTransaction();
-    await mysqlConnection.query("SET FOREIGN_KEY_CHECKS = 0");
-    await mysqlConnection.query("TRUNCATE TABLE booking");
-    await mysqlConnection.query("TRUNCATE TABLE properti_gambar");
-    await mysqlConnection.query("TRUNCATE TABLE properti");
-    await mysqlConnection.query("SET FOREIGN_KEY_CHECKS = 1");
+    await client.query("BEGIN");
+    await client.query("TRUNCATE TABLE booking, properti_gambar, properti RESTART IDENTITY CASCADE");
 
     for (const row of properties) {
-      await mysqlConnection.execute(
+      await client.query(
         `INSERT INTO properti (
           kode_rumah, nama_rumah, alamat, kota, tipe, harga, rating,
           kamar_tidur, kamar_mandi, luas_tanah, luas_bangunan, garasi, fitur, deskripsi
-        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,CAST(? AS JSON),?)`,
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13::jsonb,$14)`,
         [
           row.kode_rumah,
           row.nama_rumah,
@@ -63,18 +59,18 @@ async function migrate() {
     }
 
     for (const row of images) {
-      await mysqlConnection.execute(
-        "INSERT INTO properti_gambar (kode_rumah, filename) VALUES (?, ?)",
+      await client.query(
+        "INSERT INTO properti_gambar (kode_rumah, filename) VALUES ($1, $2)",
         [row.kode_rumah, row.filename]
       );
     }
 
     for (const row of bookings) {
-      await mysqlConnection.execute(
+      await client.query(
         `INSERT INTO booking (
           id, kode_rumah, nama_depan, nama_belakang, email, telepon,
           metode_pembayaran, booking_fee, status, dibuat_pada
-        ) VALUES (?,?,?,?,?,?,?,?,?,?)`,
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
         [
           row.id,
           row.kode_rumah,
@@ -90,15 +86,19 @@ async function migrate() {
       );
     }
 
-    await mysqlConnection.commit();
+    await client.query(
+      "SELECT setval(pg_get_serial_sequence('booking', 'id'), COALESCE((SELECT MAX(id) FROM booking), 1), true)"
+    );
+
+    await client.query("COMMIT");
     console.log("SQLite migration completed.");
   } catch (error) {
-    await mysqlConnection.rollback();
+    await client.query("ROLLBACK");
     console.error("Migration failed:", error);
     process.exitCode = 1;
   } finally {
     db.close();
-    mysqlConnection.release();
+    client.release();
     await pool.end();
   }
 }

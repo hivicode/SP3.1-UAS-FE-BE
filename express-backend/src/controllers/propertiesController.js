@@ -18,7 +18,7 @@ function absoluteFileFromPublicUrl(publicPath = "") {
 
 async function getPropertyImages(kodeRumah) {
   const rows = await query(
-    "SELECT filename FROM properti_gambar WHERE kode_rumah = ? ORDER BY id ASC",
+    "SELECT filename FROM properti_gambar WHERE kode_rumah = $1 ORDER BY id ASC",
     [kodeRumah]
   );
   return rows.map((row) => `/uploads/${row.filename}`);
@@ -26,7 +26,7 @@ async function getPropertyImages(kodeRumah) {
 
 async function getPropertyStatus(kodeRumah) {
   const rows = await query(
-    "SELECT status FROM booking WHERE kode_rumah = ? ORDER BY id DESC LIMIT 1",
+    "SELECT status FROM booking WHERE kode_rumah = $1 ORDER BY id DESC LIMIT 1",
     [kodeRumah]
   );
   const row = rows[0];
@@ -58,7 +58,7 @@ async function listProperties(req, res, next) {
     const q = String(req.query.q || "").trim();
     const sql = q
       ? `SELECT * FROM properti
-         WHERE nama_rumah LIKE ? OR alamat LIKE ? OR kota LIKE ?
+         WHERE nama_rumah ILIKE $1 OR alamat ILIKE $2 OR kota ILIKE $3
          ORDER BY nama_rumah ASC`
       : "SELECT * FROM properti ORDER BY nama_rumah ASC";
     const params = q ? [`%${q}%`, `%${q}%`, `%${q}%`] : [];
@@ -82,7 +82,7 @@ async function listProperties(req, res, next) {
 async function getProperty(req, res, next) {
   try {
     const { kode } = req.params;
-    const rows = await query("SELECT * FROM properti WHERE kode_rumah = ?", [kode]);
+    const rows = await query("SELECT * FROM properti WHERE kode_rumah = $1", [kode]);
     const row = rows[0];
     if (!row) {
       return res.status(404).json({ message: "Properti tidak ditemukan" });
@@ -99,7 +99,7 @@ async function getProperty(req, res, next) {
 }
 
 async function createProperty(req, res, next) {
-  const connection = await pool.getConnection();
+  const client = await pool.connect();
   try {
     const payload = req.body || {};
     const kodeRumah = String(payload.kode_rumah || "").trim();
@@ -108,12 +108,12 @@ async function createProperty(req, res, next) {
     }
 
     const fitur = parseFitur(payload.fitur);
-    await connection.beginTransaction();
-    await connection.execute(
+    await client.query("BEGIN");
+    await client.query(
       `INSERT INTO properti (
         kode_rumah, nama_rumah, alamat, kota, tipe, harga, rating,
         kamar_tidur, kamar_mandi, luas_tanah, luas_bangunan, garasi, fitur, deskripsi
-      ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,CAST(? AS JSON),?)`,
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13::jsonb,$14)`,
       [
         kodeRumah,
         String(payload.nama_rumah || "").trim(),
@@ -134,36 +134,37 @@ async function createProperty(req, res, next) {
 
     const filenames = saveImageFiles(req.files || []);
     for (const filename of filenames) {
-      await connection.execute(
-        "INSERT INTO properti_gambar (kode_rumah, filename) VALUES (?, ?)",
+      await client.query(
+        "INSERT INTO properti_gambar (kode_rumah, filename) VALUES ($1, $2)",
         [kodeRumah, filename]
       );
     }
-    await connection.commit();
+    await client.query("COMMIT");
 
-    const rows = await query("SELECT * FROM properti WHERE kode_rumah = ?", [kodeRumah]);
+    const rows = await query("SELECT * FROM properti WHERE kode_rumah = $1", [kodeRumah]);
     const row = rows[0];
     const images = await getPropertyImages(kodeRumah);
     return res.status(201).json(serializeProperty(row, images, "available"));
   } catch (error) {
-    await connection.rollback();
-    if (error.code === "ER_DUP_ENTRY") {
+    await client.query("ROLLBACK");
+    if (error.code === "23505") {
       return res.status(400).json({ message: "kode_rumah sudah terpakai" });
     }
     return next(error);
   } finally {
-    connection.release();
+    client.release();
   }
 }
 
 async function updateProperty(req, res, next) {
-  const connection = await pool.getConnection();
+  const client = await pool.connect();
   try {
     const { kode } = req.params;
-    const [existingRows] = await connection.execute(
-      "SELECT * FROM properti WHERE kode_rumah = ?",
+    const existingResult = await client.query(
+      "SELECT * FROM properti WHERE kode_rumah = $1",
       [kode]
     );
+    const existingRows = existingResult.rows;
     const existing = existingRows[0];
     if (!existing) {
       return res.status(404).json({ message: "Properti tidak ditemukan" });
@@ -172,23 +173,23 @@ async function updateProperty(req, res, next) {
     const payload = req.body || {};
     const fitur = parseFitur(payload.fitur ?? existing.fitur ?? []);
 
-    await connection.beginTransaction();
-    await connection.execute(
+    await client.query("BEGIN");
+    await client.query(
       `UPDATE properti SET
-         nama_rumah = ?,
-         alamat = ?,
-         kota = ?,
-         tipe = ?,
-         harga = ?,
-         rating = ?,
-         kamar_tidur = ?,
-         kamar_mandi = ?,
-         luas_tanah = ?,
-         luas_bangunan = ?,
-         garasi = ?,
-         fitur = CAST(? AS JSON),
-         deskripsi = ?
-       WHERE kode_rumah = ?`,
+         nama_rumah = $1,
+         alamat = $2,
+         kota = $3,
+         tipe = $4,
+         harga = $5,
+         rating = $6,
+         kamar_tidur = $7,
+         kamar_mandi = $8,
+         luas_tanah = $9,
+         luas_bangunan = $10,
+         garasi = $11,
+         fitur = $12::jsonb,
+         deskripsi = $13
+       WHERE kode_rumah = $14`,
       [
         String(payload.nama_rumah ?? existing.nama_rumah).trim(),
         String(payload.alamat ?? existing.alamat).trim(),
@@ -209,50 +210,52 @@ async function updateProperty(req, res, next) {
 
     const incomingFiles = saveImageFiles(req.files || []);
     if (incomingFiles.length > 0) {
-      const [oldImageRows] = await connection.execute(
-        "SELECT filename FROM properti_gambar WHERE kode_rumah = ?",
+      const oldImageResult = await client.query(
+        "SELECT filename FROM properti_gambar WHERE kode_rumah = $1",
         [kode]
       );
-      await connection.execute("DELETE FROM properti_gambar WHERE kode_rumah = ?", [kode]);
+      const oldImageRows = oldImageResult.rows;
+      await client.query("DELETE FROM properti_gambar WHERE kode_rumah = $1", [kode]);
       removeImages(oldImageRows.map((row) => `/uploads/${row.filename}`));
 
       for (const filename of incomingFiles) {
-        await connection.execute(
-          "INSERT INTO properti_gambar (kode_rumah, filename) VALUES (?, ?)",
+        await client.query(
+          "INSERT INTO properti_gambar (kode_rumah, filename) VALUES ($1, $2)",
           [kode, filename]
         );
       }
     }
 
-    await connection.commit();
+    await client.query("COMMIT");
 
-    const updatedRow = (await query("SELECT * FROM properti WHERE kode_rumah = ?", [kode]))[0];
+    const updatedRow = (await query("SELECT * FROM properti WHERE kode_rumah = $1", [kode]))[0];
     const images = await getPropertyImages(kode);
     return res.json(serializeProperty(updatedRow, images, await getPropertyStatus(kode)));
   } catch (error) {
-    await connection.rollback();
+    await client.query("ROLLBACK");
     return next(error);
   } finally {
-    connection.release();
+    client.release();
   }
 }
 
 async function deleteProperty(req, res, next) {
-  const connection = await pool.getConnection();
+  const client = await pool.connect();
   try {
     const { kode } = req.params;
-    const [imageRows] = await connection.execute(
-      "SELECT filename FROM properti_gambar WHERE kode_rumah = ?",
+    const imageResult = await client.query(
+      "SELECT filename FROM properti_gambar WHERE kode_rumah = $1",
       [kode]
     );
+    const imageRows = imageResult.rows;
 
-    await connection.execute("DELETE FROM properti WHERE kode_rumah = ?", [kode]);
+    await client.query("DELETE FROM properti WHERE kode_rumah = $1", [kode]);
     removeImages(imageRows.map((row) => `/uploads/${row.filename}`));
     return res.json({ message: "Properti dihapus" });
   } catch (error) {
     return next(error);
   } finally {
-    connection.release();
+    client.release();
   }
 }
 

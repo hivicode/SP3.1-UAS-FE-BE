@@ -1,20 +1,19 @@
-const mysql = require("mysql2/promise");
+const { Pool } = require("pg");
 const { databaseUrl } = require("../config");
 
 if (!databaseUrl) {
   throw new Error("DATABASE_URL is required.");
 }
 
-const pool = mysql.createPool({
-  uri: databaseUrl,
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0,
+const pool = new Pool({
+  connectionString: databaseUrl,
+  max: 10,
+  ssl: process.env.DATABASE_SSL === "false" ? false : { rejectUnauthorized: false },
 });
 
 async function query(text, params = []) {
-  const [rows] = await pool.execute(text, params);
-  return rows;
+  const result = await pool.query(text, params);
+  return result.rows;
 }
 
 module.exports = {

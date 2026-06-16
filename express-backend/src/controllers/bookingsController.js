@@ -16,7 +16,7 @@ async function listBookings(_req, res, next) {
 }
 
 async function createBooking(req, res, next) {
-  const connection = await pool.getConnection();
+  const client = await pool.connect();
   try {
     const payload = req.body || {};
     const requiredFields = [
@@ -33,20 +33,22 @@ async function createBooking(req, res, next) {
       return res.status(400).json({ message: "Data booking belum lengkap.", missing });
     }
 
-    const [propertyRows] = await connection.execute(
-      "SELECT kode_rumah FROM properti WHERE kode_rumah = ?",
+    const propertyResult = await client.query(
+      "SELECT kode_rumah FROM properti WHERE kode_rumah = $1",
       [payload.kode_rumah]
     );
+    const propertyRows = propertyResult.rows;
     if (propertyRows.length === 0) {
       return res.status(404).json({ message: "Properti tidak ditemukan" });
     }
 
     const status = String(payload.status || "pending").trim().toLowerCase() || "pending";
-    const [insert] = await connection.execute(
+    const insertResult = await client.query(
       `INSERT INTO booking (
         kode_rumah, nama_depan, nama_belakang, email, telepon,
         metode_pembayaran, booking_fee, status, dibuat_pada
-      ) VALUES (?,?,?,?,?,?,?, ?, NOW())`,
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,NOW())
+       RETURNING id`,
       [
         String(payload.kode_rumah).trim(),
         String(payload.nama_depan).trim(),
@@ -59,20 +61,20 @@ async function createBooking(req, res, next) {
       ]
     );
 
-    const bookingId = insert.insertId;
-    const [rows] = await connection.execute(
+    const bookingId = insertResult.rows[0].id;
+    const rowsResult = await client.query(
       `SELECT b.*, p.nama_rumah, p.alamat, p.kota
        FROM booking b
        JOIN properti p ON p.kode_rumah = b.kode_rumah
-       WHERE b.id = ?`,
+       WHERE b.id = $1`,
       [bookingId]
     );
 
-    return res.status(201).json(serializeBooking(rows[0]));
+    return res.status(201).json(serializeBooking(rowsResult.rows[0]));
   } catch (error) {
     return next(error);
   } finally {
-    connection.release();
+    client.release();
   }
 }
 
@@ -88,17 +90,17 @@ async function updateBookingStatus(req, res, next) {
       return res.status(400).json({ message: "Status tidak valid" });
     }
 
-    const exists = await query("SELECT id FROM booking WHERE id = ?", [bookingId]);
+    const exists = await query("SELECT id FROM booking WHERE id = $1", [bookingId]);
     if (exists.length === 0) {
       return res.status(404).json({ message: "Booking tidak ditemukan" });
     }
 
-    await query("UPDATE booking SET status = ? WHERE id = ?", [newStatus, bookingId]);
+    await query("UPDATE booking SET status = $1 WHERE id = $2", [newStatus, bookingId]);
     const rows = await query(
       `SELECT b.*, p.nama_rumah, p.alamat, p.kota
        FROM booking b
        JOIN properti p ON p.kode_rumah = b.kode_rumah
-       WHERE b.id = ?`,
+       WHERE b.id = $1`,
       [bookingId]
     );
     return res.json(serializeBooking(rows[0]));
