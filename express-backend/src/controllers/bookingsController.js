@@ -61,7 +61,7 @@ function getInquiryNextAction(status, bookingFee) {
   if (status === "contacted") return "Admin sudah menghubungi. Lanjutkan komunikasi sesuai preferensi kontak.";
   if (status === "booking_fee_pending") {
     return bookingFee > 0
-      ? "Booking fee belum tercatat dibayar. Ikuti instruksi admin sebelum unit berubah menjadi booked."
+      ? "Jika booking fee sudah dibayar, tekan tombol Saya Sudah Bayar agar unit masuk status booked."
       : "Admin akan mengirim instruksi lanjutan jika Anda ingin booking unit.";
   }
   if (status === "reserved") return "Unit sudah booked. Hubungi admin jika ingin mengubah jadwal atau membatalkan.";
@@ -74,11 +74,13 @@ function serializePublicInquiry(row) {
   const booking = serializeBooking(row);
   const status = normalizeInquiryStatus(booking.status, booking.booking_fee);
   const canCancel = CANCELLABLE_STATUSES.has(status);
+  const canConfirmPayment = booking.booking_fee > 0 && CANCELLABLE_STATUSES.has(status);
 
   return {
     ...booking,
     status,
     can_cancel: canCancel,
+    can_confirm_payment: canConfirmPayment,
     next_action: getInquiryNextAction(status, booking.booking_fee),
   };
 }
@@ -245,6 +247,50 @@ async function cancelInquiry(req, res, next) {
   }
 }
 
+async function confirmInquiryPayment(req, res, next) {
+  try {
+    const result = await findVerifiedPublicInquiry(req.body || {});
+    if (result.error) {
+      return res.status(result.error.status).json({ message: result.error.message });
+    }
+
+    const current = serializePublicInquiry(result.inquiry);
+    if (current.status === "reserved" || current.status === "closed") {
+      return res.json(current);
+    }
+    if (current.status === "cancelled") {
+      return res.status(409).json({
+        message: "Inquiry sudah dibatalkan dan tidak bisa dikonfirmasi bayar.",
+        inquiry: current,
+      });
+    }
+    if (current.booking_fee <= 0) {
+      return res.status(400).json({ message: "Inquiry ini tidak memiliki booking fee." });
+    }
+
+    const paymentNote = `[${new Date().toISOString()}] User menekan tombol Saya Sudah Bayar. Verifikasi pembayaran booking fee.`;
+    const updatedNote = [String(result.inquiry.catatan || "").trim(), paymentNote]
+      .filter(Boolean)
+      .join("\n");
+
+    await query("UPDATE booking SET status = 'reserved', catatan = $1 WHERE id = $2", [
+      updatedNote,
+      result.inquiry.id,
+    ]);
+    const updatedRows = await query(
+      `SELECT b.*, p.nama_rumah, p.alamat, p.kota
+       FROM booking b
+       LEFT JOIN properti p ON p.kode_rumah = b.kode_rumah
+       WHERE b.id = $1`,
+      [result.inquiry.id]
+    );
+
+    return res.json(serializePublicInquiry(updatedRows[0]));
+  } catch (error) {
+    return next(error);
+  }
+}
+
 async function updateBookingStatus(req, res, next) {
   try {
     const bookingId = Number(req.params.bookingId);
@@ -283,5 +329,6 @@ module.exports = {
   createBooking,
   checkInquiryStatus,
   cancelInquiry,
+  confirmInquiryPayment,
   updateBookingStatus,
 };

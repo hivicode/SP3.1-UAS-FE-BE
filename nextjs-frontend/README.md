@@ -2,6 +2,15 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 
 ## Getting Started
 
+Create `.env.local` when running locally:
+
+```bash
+NEXT_PUBLIC_API_URL=http://localhost:5000
+NEXT_PUBLIC_QRIS_IMAGE_URL=/qris.png
+```
+
+`NEXT_PUBLIC_QRIS_IMAGE_URL` is the QRIS image shown on the booking fee inquiry page. Put the merchant QRIS image at `public/qris.png`, or use a hosted image URL. This QRIS is only for booking fee instructions, not full house payment automation.
+
 First, run the development server:
 
 ```bash

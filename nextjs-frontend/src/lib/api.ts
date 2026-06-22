@@ -46,6 +46,7 @@ export type BookingApi = {
   alamat: string;
   kota: string;
   can_cancel?: boolean;
+  can_confirm_payment?: boolean;
   next_action?: string;
 };
 

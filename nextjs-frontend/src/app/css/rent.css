@@ -758,6 +758,45 @@
   font-weight: 600;
 }
 
+.rent-qris-box {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 180px;
+  gap: 1rem;
+  align-items: center;
+  padding: .85rem;
+  border-radius: .85rem;
+  border: 1px solid rgba(23, 20, 17, .12);
+  background-color: rgba(255, 255, 255, .34);
+}
+
+.rent-qris-image {
+  width: 180px;
+  aspect-ratio: 1 / 1;
+  border-radius: .65rem;
+  overflow: hidden;
+  background-color: #fff;
+  border: 1px solid rgba(23, 20, 17, .12);
+}
+
+.rent-qris-image img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.rent-qris-empty {
+  min-height: 180px;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  padding: .75rem;
+  border-radius: .65rem;
+  border: 1px dashed rgba(23, 20, 17, .25);
+  color: rgba(23, 20, 17, .66);
+  font-size: .85rem;
+}
+
 .rent-confirm-btn {
   justify-content: center;
   width: 100%;
@@ -850,6 +889,16 @@
 
   .rent-pay-methods {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .rent-qris-box {
+    grid-template-columns: 1fr;
+  }
+
+  .rent-qris-image,
+  .rent-qris-empty {
+    width: min(100%, 220px);
+    justify-self: start;
   }
 }
 

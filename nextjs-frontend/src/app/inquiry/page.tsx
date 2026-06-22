@@ -15,6 +15,8 @@ type InquiryState = {
   createdAt: number;
 };
 
+const QRIS_IMAGE_URL = process.env.NEXT_PUBLIC_QRIS_IMAGE_URL || "";
+
 export default function InquiryPage() {
   const [inquiry, setInquiry] = useState<InquiryState | null>(null);
   const [property, setProperty] = useState<PropertyApi | null>(null);
@@ -24,6 +26,8 @@ export default function InquiryPage() {
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState<BookingApi | null>(null);
   const [copiedCode, setCopiedCode] = useState(false);
+  const [confirmingPayment, setConfirmingPayment] = useState(false);
+  const [submittedContact, setSubmittedContact] = useState("");
 
   useEffect(() => {
     const raw = window.localStorage.getItem("planb_inquiry") || window.localStorage.getItem("planb_purchase");
@@ -108,6 +112,7 @@ export default function InquiryPage() {
       );
       window.localStorage.removeItem("planb_inquiry");
       window.localStorage.removeItem("planb_purchase");
+      setSubmittedContact(phone || email);
       setSubmitted(result);
     } catch {
       window.alert("Gagal mengirim minat. Coba lagi atau hubungi admin PlanB.");
@@ -125,6 +130,39 @@ export default function InquiryPage() {
       window.setTimeout(() => setCopiedCode(false), 1600);
     } catch {
       window.prompt("Salin kode inquiry:", submitted.kode_inquiry);
+    }
+  };
+
+  const confirmPayment = async () => {
+    if (!submitted) return;
+    const contact = submittedContact || submitted.telepon || submitted.email;
+    const confirmed = window.confirm("Konfirmasi booking fee sudah dibayar? Unit akan masuk status booked.");
+    if (!confirmed) return;
+
+    setConfirmingPayment(true);
+    try {
+      const result = await apiFetch<BookingApi>("/api/booking/confirm-payment", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          kode_inquiry: submitted.kode_inquiry,
+          contact,
+        }),
+      });
+      setSubmitted(result);
+      window.localStorage.setItem(
+        "planb_last_inquiry",
+        JSON.stringify({
+          kode_inquiry: result.kode_inquiry,
+          contact,
+          propertyName: result.nama_rumah,
+          createdAt: Date.now(),
+        })
+      );
+    } catch {
+      window.alert("Gagal konfirmasi pembayaran. Coba cek status inquiry atau hubungi admin.");
+    } finally {
+      setConfirmingPayment(false);
     }
   };
 
@@ -158,7 +196,13 @@ export default function InquiryPage() {
                     </div>
                     <div className="rent-summary-line">
                       <span>Status</span>
-                      <span>{submitted.status === "booking_fee_pending" ? "Menunggu booking fee" : "Inquiry baru"}</span>
+                      <span>
+                        {submitted.status === "reserved"
+                          ? "Booked"
+                          : submitted.status === "booking_fee_pending"
+                            ? "Menunggu booking fee"
+                            : "Inquiry baru"}
+                      </span>
                     </div>
                     <div className="rent-summary-line">
                       <span>Cek ulang dengan</span>
@@ -168,6 +212,40 @@ export default function InquiryPage() {
                   <p className="text-size-small text-style-muted" style={{ marginTop: "1rem" }}>
                     Kalau belum booked, inquiry bisa dibatalkan dari halaman cek status. Setelah booked atau sold, hubungi admin agar data tetap rapi.
                   </p>
+                  {submitted.booking_fee > 0 && submitted.metode_pembayaran.toLowerCase() === "qris" && (
+                    <div className="rent-qris-box">
+                      <div>
+                        <div className="text-style-allcaps text-size-small">QRIS Booking Fee</div>
+                        <p className="text-size-small text-style-muted">
+                          Scan QRIS untuk booking fee {money(submitted.booking_fee)}. Cantumkan kode {submitted.kode_inquiry} saat konfirmasi ke admin.
+                        </p>
+                      </div>
+                      {QRIS_IMAGE_URL ? (
+                        <div className="rent-qris-image">
+                          <img src={QRIS_IMAGE_URL} alt="QRIS booking fee PlanB" />
+                        </div>
+                      ) : (
+                        <div className="rent-qris-empty">
+                          QRIS belum dikonfigurasi. Set NEXT_PUBLIC_QRIS_IMAGE_URL di Vercel atau simpan gambar sebagai /qris.png.
+                        </div>
+                      )}
+                      {submitted.status !== "reserved" && (
+                        <button
+                          type="button"
+                          className="button w-inline-block rent-confirm-btn"
+                          onClick={confirmPayment}
+                          disabled={confirmingPayment}
+                        >
+                          <div className="button-text">
+                            <div className="button_text">{confirmingPayment ? "Memproses..." : "Saya Sudah Bayar"}</div>
+                            <div className="button-text-animation">
+                              <div className="button_text">Saya Sudah Bayar</div>
+                            </div>
+                          </div>
+                        </button>
+                      )}
+                    </div>
+                  )}
                   <div className="button-wrap" style={{ marginTop: "1rem", display: "flex", gap: ".75rem", flexWrap: "wrap" }}>
                     <Link href="/inquiry/status" className="button w-inline-block">
                       <div className="button-text">
@@ -285,6 +363,29 @@ export default function InquiryPage() {
                                 <span className="rent-pay-name">Transfer Bank</span>
                               </label>
                             </div>
+                            {payMethod === "qris" ? (
+                              <div className="rent-qris-box">
+                                <div>
+                                  <div className="text-style-allcaps text-size-small">QRIS Booking Fee</div>
+                                  <p className="text-size-small text-style-muted">
+                                    QRIS ini hanya untuk booking fee, bukan pembayaran rumah penuh. Kode inquiry muncul setelah form dikirim.
+                                  </p>
+                                </div>
+                                {QRIS_IMAGE_URL ? (
+                                  <div className="rent-qris-image">
+                                    <img src={QRIS_IMAGE_URL} alt="QRIS booking fee PlanB" />
+                                  </div>
+                                ) : (
+                                  <div className="rent-qris-empty">
+                                    QRIS belum dikonfigurasi. Admin tetap bisa mengirim QRIS setelah inquiry masuk.
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <p className="text-size-small text-style-muted">
+                                Instruksi transfer akan dikirim admin setelah inquiry terverifikasi.
+                              </p>
+                            )}
                           </>
                         ) : (
                           <p className="text-size-small text-style-muted">

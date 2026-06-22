@@ -11,6 +11,7 @@ import { money } from "@/lib/format";
 
 type InquiryStatusResponse = BookingApi & {
   can_cancel: boolean;
+  can_confirm_payment: boolean;
   next_action: string;
 };
 
@@ -49,6 +50,7 @@ export default function InquiryStatusPage() {
   const [inquiry, setInquiry] = useState<InquiryStatusResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+  const [confirmingPayment, setConfirmingPayment] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -125,6 +127,30 @@ export default function InquiryStatusPage() {
       setError(cancelError instanceof Error ? cancelError.message : "Gagal membatalkan inquiry.");
     } finally {
       setCancelling(false);
+    }
+  };
+
+  const confirmPayment = async () => {
+    if (!inquiry) return;
+    const confirmed = window.confirm("Konfirmasi booking fee sudah dibayar? Unit akan masuk status booked.");
+    if (!confirmed) return;
+
+    setConfirmingPayment(true);
+    setError("");
+    try {
+      const result = await apiFetch<InquiryStatusResponse>("/api/booking/confirm-payment", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          kode_inquiry: code.trim(),
+          contact: contact.trim(),
+        }),
+      });
+      setInquiry(result);
+    } catch (confirmError) {
+      setError(confirmError instanceof Error ? confirmError.message : "Gagal konfirmasi pembayaran.");
+    } finally {
+      setConfirmingPayment(false);
     }
   };
 
@@ -254,6 +280,22 @@ export default function InquiryStatusPage() {
                         <p className="text-size-small text-style-muted" style={{ marginTop: "1rem" }}>
                           {inquiry.next_action}
                         </p>
+
+                        {inquiry.can_confirm_payment && (
+                          <button
+                            type="button"
+                            className="button w-inline-block rent-confirm-btn"
+                            onClick={confirmPayment}
+                            disabled={confirmingPayment}
+                          >
+                            <div className="button-text">
+                              <div className="button_text">{confirmingPayment ? "Memproses..." : "Saya Sudah Bayar"}</div>
+                              <div className="button-text-animation">
+                                <div className="button_text">Saya Sudah Bayar</div>
+                              </div>
+                            </div>
+                          </button>
+                        )}
 
                         {inquiry.can_cancel ? (
                           <button

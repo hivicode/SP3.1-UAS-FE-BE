@@ -4,6 +4,7 @@ const {
   createBooking,
   checkInquiryStatus,
   cancelInquiry,
+  confirmInquiryPayment,
   updateBookingStatus,
 } = require("../controllers/bookingsController");
 const { authRequired } = require("../middleware/auth");
@@ -14,6 +15,7 @@ router.get("/", authRequired, listBookings);
 router.post("/", createBooking);
 router.post("/status", checkInquiryStatus);
 router.post("/cancel", cancelInquiry);
+router.post("/confirm-payment", confirmInquiryPayment);
 router.patch("/:bookingId/status", authRequired, updateBookingStatus);
 
 module.exports = router;
