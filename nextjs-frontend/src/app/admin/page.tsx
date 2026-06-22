@@ -5,7 +5,6 @@ import {
   apiFetch,
   AuthResponse,
   BookingApi,
-  FinanceMonthlyRow,
   FinanceReport,
   PropertyApi,
   withAuth,
@@ -55,6 +54,36 @@ function inquiryStatusLabel(status: string) {
   return INQUIRY_STATUS_OPTIONS.find((item) => item.value === status)?.label || status;
 }
 
+type FinanceFormState = {
+  tanggal: string;
+  tipe: "pemasukan" | "pengeluaran";
+  kategori: string;
+  deskripsi: string;
+  jumlah: string;
+};
+
+function todayInputDate() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function formatDate(value: string) {
+  const [year, month, day] = String(value || "").slice(0, 10).split("-");
+  if (!year || !month || !day) return "-";
+  return `${day}/${month}/${year}`;
+}
+
+function transactionTypeLabel(type: string) {
+  return type === "pemasukan" ? "Pemasukan" : "Pengeluaran";
+}
+
+const emptyFinanceForm: FinanceFormState = {
+  tanggal: todayInputDate(),
+  tipe: "pengeluaran",
+  kategori: "",
+  deskripsi: "",
+  jumlah: "",
+};
+
 const emptyForm: PropertyFormState = {
   kode_rumah: "",
   nama_rumah: "",
@@ -89,9 +118,7 @@ export default function AdminPage() {
   const [perPage, setPerPage] = useState(10);
   const [financeYear, setFinanceYear] = useState(new Date().getFullYear());
   const [financeReport, setFinanceReport] = useState<FinanceReport | null>(null);
-  const [financeDrafts, setFinanceDrafts] = useState<
-    Record<number, { biaya_operasional: string; catatan: string }>
-  >({});
+  const [financeForm, setFinanceForm] = useState<FinanceFormState>(emptyFinanceForm);
   const [loadingFinance, setLoadingFinance] = useState(false);
 
   const isEditing = Boolean(editCode);
@@ -185,17 +212,6 @@ export default function AdminPage() {
         headers: withAuth(authToken),
       });
       setFinanceReport(report);
-
-      const draftMap = report.bulanan.reduce<
-        Record<number, { biaya_operasional: string; catatan: string }>
-      >((acc, row) => {
-        acc[row.bulan] = {
-          biaya_operasional: String(row.biaya_operasional || 0),
-          catatan: row.catatan || "",
-        };
-        return acc;
-      }, {});
-      setFinanceDrafts(draftMap);
     } finally {
       setLoadingFinance(false);
     }
@@ -370,44 +386,57 @@ export default function AdminPage() {
     }
   };
 
-  const updateFinanceDraft = (
-    month: number,
-    patch: Partial<{ biaya_operasional: string; catatan: string }>
-  ) => {
-    setFinanceDrafts((prev) => ({
-      ...prev,
-      [month]: {
-        biaya_operasional: prev[month]?.biaya_operasional ?? "0",
-        catatan: prev[month]?.catatan ?? "",
-        ...patch,
-      },
-    }));
-  };
-
-  const saveOperationalCost = async (row: FinanceMonthlyRow) => {
+  const saveFinanceTransaction = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
     if (!token) return;
-    const draft = financeDrafts[row.bulan] || {
-      biaya_operasional: String(row.biaya_operasional || 0),
-      catatan: row.catatan || "",
-    };
-    setBusyAction(`finance-${row.bulan}`);
+    if (!financeForm.kategori.trim() || Number(financeForm.jumlah || 0) <= 0) {
+      window.alert("Isi kategori dan jumlah transaksi.");
+      return;
+    }
+
+    setBusyAction("finance-add");
     try {
-      await apiFetch("/api/finance/operasional", {
+      await apiFetch("/api/finance/transactions", {
         method: "POST",
         headers: {
           ...withAuth(token),
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          tahun: financeYear,
-          bulan: row.bulan,
-          biaya_operasional: Number(draft.biaya_operasional || 0),
-          catatan: draft.catatan || "",
+          tanggal: financeForm.tanggal,
+          tipe: financeForm.tipe,
+          kategori: financeForm.kategori,
+          deskripsi: financeForm.deskripsi,
+          jumlah: Number(financeForm.jumlah || 0),
         }),
+      });
+      setFinanceForm({
+        ...emptyFinanceForm,
+        tanggal: financeForm.tanggal,
+        tipe: financeForm.tipe,
       });
       await loadFinance(token, financeYear);
     } catch {
-      window.alert("Gagal menyimpan biaya operasional.");
+      window.alert("Gagal menyimpan transaksi keuangan.");
+    } finally {
+      setBusyAction("");
+    }
+  };
+
+  const deleteFinanceTransaction = async (transactionId: number) => {
+    if (!token) return;
+    const confirmed = window.confirm("Hapus transaksi manual ini?");
+    if (!confirmed) return;
+
+    setBusyAction(`finance-delete-${transactionId}`);
+    try {
+      await apiFetch(`/api/finance/transactions/${transactionId}`, {
+        method: "DELETE",
+        headers: withAuth(token),
+      });
+      await loadFinance(token, financeYear);
+    } catch {
+      window.alert("Gagal menghapus transaksi.");
     } finally {
       setBusyAction("");
     }
@@ -688,7 +717,7 @@ export default function AdminPage() {
               <div>
                 <h1 className="admin-title">Laporan Keuangan</h1>
                 <p className="admin-subtitle">
-                  Penjualan closed dan booking fee diterima dikurangi biaya operasional per bulan.
+                  Pemasukan otomatis dari unit booked/sold, pengeluaran dicatat detail, laba rugi dihitung otomatis.
                 </p>
               </div>
               <div className="admin-actions">
@@ -707,92 +736,259 @@ export default function AdminPage() {
             {financeReport && (
               <div className="admin-stats" style={{ marginBottom: "1rem" }}>
                 <div className="admin-stat-card">
-                  <div className="admin-stat-title">Penjualan Closed ({financeReport.tahun})</div>
-                  <div className="admin-stat-value">{money(financeReport.summary.total_penjualan)}</div>
-                  <div className="admin-muted">{financeReport.summary.total_transaksi} transaksi closed</div>
+                  <div className="admin-stat-title">Total Pemasukan ({financeReport.tahun})</div>
+                  <div className="admin-stat-value">{money(financeReport.summary.total_pemasukan)}</div>
+                  <div className="admin-muted">
+                    Penjualan, booking fee, dan pemasukan lain.
+                  </div>
                 </div>
                 <div className="admin-stat-card">
-                  <div className="admin-stat-title">Biaya Operasional</div>
-                  <div className="admin-stat-value">{money(financeReport.summary.total_biaya_operasional)}</div>
-                  <div className="admin-muted">Akumulasi biaya per bulan</div>
+                  <div className="admin-stat-title">Total Pengeluaran</div>
+                  <div className="admin-stat-value">{money(financeReport.summary.total_pengeluaran)}</div>
+                  <div className="admin-muted">Biaya operasional dan transaksi keluar.</div>
                 </div>
                 <div className="admin-stat-card">
-                  <div className="admin-stat-title">Laba Bersih</div>
+                  <div className="admin-stat-title">Laba/Rugi Bersih</div>
                   <div className="admin-stat-value">{money(financeReport.summary.total_laba_bersih)}</div>
-                  <div className="admin-muted">Penjualan closed - biaya operasional</div>
+                  <div className="admin-muted">Total pemasukan - total pengeluaran.</div>
+                </div>
+                <div className="admin-stat-card">
+                  <div className="admin-stat-title">Penjualan dan Booking</div>
+                  <div className="admin-stat-value">{financeReport.summary.total_transaksi}</div>
+                  <div className="admin-muted">
+                    Sold: {money(financeReport.summary.total_penjualan)}. Booking: {money(financeReport.summary.total_booking_fee)}.
+                  </div>
                 </div>
               </div>
             )}
 
-            <section className="admin-card">
+            <section className="admin-card" style={{ marginBottom: "1rem" }}>
+              <div className="admin-section-head">
+                <div>
+                  <h2 className="admin-section-title">Tambah Transaksi Manual</h2>
+                  <p className="admin-muted">
+                    Pakai ini untuk pengeluaran nyata seperti iklan, komisi, transport, dokumen, maintenance, atau pemasukan lain di luar penjualan rumah.
+                  </p>
+                </div>
+              </div>
+
+              <form className="admin-form-grid" onSubmit={saveFinanceTransaction}>
+                <div className="admin-field">
+                  <label htmlFor="financeDate">Tanggal</label>
+                  <input
+                    id="financeDate"
+                    className="admin-input"
+                    type="date"
+                    value={financeForm.tanggal}
+                    onChange={(event) => setFinanceForm((prev) => ({ ...prev, tanggal: event.target.value }))}
+                  />
+                </div>
+                <div className="admin-field">
+                  <label htmlFor="financeType">Tipe</label>
+                  <select
+                    id="financeType"
+                    className="admin-select"
+                    value={financeForm.tipe}
+                    onChange={(event) =>
+                      setFinanceForm((prev) => ({
+                        ...prev,
+                        tipe: event.target.value as FinanceFormState["tipe"],
+                      }))
+                    }
+                  >
+                    <option value="pengeluaran">Pengeluaran</option>
+                    <option value="pemasukan">Pemasukan lain</option>
+                  </select>
+                </div>
+                <div className="admin-field">
+                  <label htmlFor="financeCategory">Kategori</label>
+                  <input
+                    id="financeCategory"
+                    className="admin-input"
+                    value={financeForm.kategori}
+                    onChange={(event) => setFinanceForm((prev) => ({ ...prev, kategori: event.target.value }))}
+                    placeholder="Iklan, komisi, transport, dokumen..."
+                  />
+                </div>
+                <div className="admin-field">
+                  <label htmlFor="financeAmount">Jumlah</label>
+                  <input
+                    id="financeAmount"
+                    className="admin-input"
+                    type="number"
+                    min={0}
+                    value={financeForm.jumlah}
+                    onChange={(event) => setFinanceForm((prev) => ({ ...prev, jumlah: event.target.value }))}
+                    placeholder="0"
+                  />
+                </div>
+                <div className="admin-field admin-full">
+                  <label htmlFor="financeDescription">Deskripsi</label>
+                  <textarea
+                    id="financeDescription"
+                    className="admin-textarea"
+                    value={financeForm.deskripsi}
+                    onChange={(event) => setFinanceForm((prev) => ({ ...prev, deskripsi: event.target.value }))}
+                    placeholder="Contoh: biaya iklan Instagram bulan Juni untuk campaign rumah tipe A."
+                  />
+                </div>
+                <div className="admin-actions admin-full">
+                  <button className="admin-btn" type="submit" disabled={busyAction === "finance-add"}>
+                    {busyAction === "finance-add" ? "Menyimpan..." : "Simpan Transaksi"}
+                  </button>
+                </div>
+              </form>
+            </section>
+
+            <section className="admin-card" style={{ marginBottom: "1rem" }}>
+              <div className="admin-section-head">
+                <div>
+                  <h2 className="admin-section-title">Ringkasan Bulanan</h2>
+                  <p className="admin-muted">Cocok untuk tabel laporan laba rugi per bulan.</p>
+                </div>
+              </div>
               {loadingFinance && <p className="admin-muted">Memuat laporan keuangan...</p>}
               {!loadingFinance && financeReport && (
-                <table className="admin-table">
-                  <thead>
-                    <tr>
-                      <th>Bulan</th>
-                      <th>Penjualan</th>
-                      <th>Booking Fee</th>
-                      <th>Biaya Operasional</th>
-                      <th>Laba Bersih</th>
-                      <th>Catatan</th>
-                      <th>Aksi</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {financeReport.bulanan.map((row) => {
-                      const draft = financeDrafts[row.bulan] || {
-                        biaya_operasional: String(row.biaya_operasional || 0),
-                        catatan: row.catatan || "",
-                      };
-                      const projectedProfit =
-                        Number(row.total_penjualan || 0) - Number(draft.biaya_operasional || 0);
-                      return (
+                <div className="admin-table-wrap">
+                  <table className="admin-table">
+                    <thead>
+                      <tr>
+                        <th>Bulan</th>
+                        <th>Pemasukan Otomatis</th>
+                        <th>Pemasukan Lain</th>
+                        <th>Total Pemasukan</th>
+                        <th>Pengeluaran</th>
+                        <th>Laba/Rugi</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {financeReport.bulanan.map((row) => (
                         <tr key={row.bulan}>
                           <td>
                             <strong>{row.nama_bulan}</strong>
                           </td>
-                          <td>{money(row.total_penjualan)}</td>
-                          <td>{money(row.total_booking_fee)}</td>
-                          <td style={{ minWidth: "180px" }}>
-                            <input
-                              className="admin-input"
-                              type="number"
-                              min={0}
-                              value={draft.biaya_operasional}
-                              onChange={(event) =>
-                                updateFinanceDraft(row.bulan, { biaya_operasional: event.target.value })
-                              }
-                            />
-                          </td>
-                          <td>{money(projectedProfit)}</td>
-                          <td style={{ minWidth: "220px" }}>
-                            <input
-                              className="admin-input"
-                              value={draft.catatan}
-                              onChange={(event) =>
-                                updateFinanceDraft(row.bulan, { catatan: event.target.value })
-                              }
-                              placeholder="Catatan operasional..."
-                            />
-                          </td>
                           <td>
-                            <button
-                              className="admin-btn"
-                              type="button"
-                              disabled={busyAction === `finance-${row.bulan}`}
-                              onClick={() => saveOperationalCost(row)}
-                            >
-                              {busyAction === `finance-${row.bulan}` ? "Menyimpan..." : "Simpan"}
-                            </button>
+                            {money(row.total_penjualan + row.total_booking_fee)}
+                            <div className="admin-muted">
+                              Sold {money(row.total_penjualan)} + booking {money(row.total_booking_fee)}
+                            </div>
                           </td>
+                          <td>{money(row.total_pemasukan_manual)}</td>
+                          <td>{money(row.total_pemasukan)}</td>
+                          <td>{money(row.total_pengeluaran)}</td>
+                          <td>{money(row.laba_bersih)}</td>
                         </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               )}
             </section>
+
+            {financeReport && (
+              <div className="admin-grid">
+                <section className="admin-card">
+                  <div className="admin-section-head">
+                    <div>
+                      <h2 className="admin-section-title">Pemasukan Otomatis</h2>
+                      <p className="admin-muted">Diambil dari inquiry berstatus booked atau sold.</p>
+                    </div>
+                  </div>
+                  {(financeReport.pemasukan_otomatis || []).length === 0 && (
+                    <p className="admin-muted">Belum ada pemasukan otomatis pada tahun ini.</p>
+                  )}
+                  {(financeReport.pemasukan_otomatis || []).length > 0 && (
+                    <div className="admin-table-wrap">
+                      <table className="admin-table">
+                        <thead>
+                          <tr>
+                            <th>Tanggal</th>
+                            <th>Sumber</th>
+                            <th>Inquiry</th>
+                            <th>Jumlah</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {financeReport.pemasukan_otomatis.map((item) => (
+                            <tr key={`${item.status}-${item.booking_id}`}>
+                              <td>{formatDate(item.tanggal)}</td>
+                              <td>
+                                <strong>{item.kategori}</strong>
+                                <div className="admin-muted">{item.nama_rumah}</div>
+                              </td>
+                              <td>{item.kode_inquiry}</td>
+                              <td>{money(item.jumlah)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </section>
+
+                <section className="admin-card">
+                  <div className="admin-section-head">
+                    <div>
+                      <h2 className="admin-section-title">Transaksi Manual</h2>
+                      <p className="admin-muted">Dipakai untuk pengeluaran dan pemasukan lain yang tidak berasal dari inquiry.</p>
+                    </div>
+                  </div>
+                  {(financeReport.transaksi || []).length === 0 && (
+                    <p className="admin-muted">Belum ada transaksi manual pada tahun ini.</p>
+                  )}
+                  {(financeReport.transaksi || []).length > 0 && (
+                    <div className="admin-table-wrap">
+                      <table className="admin-table">
+                        <thead>
+                          <tr>
+                            <th>Tanggal</th>
+                            <th>Tipe</th>
+                            <th>Kategori</th>
+                            <th>Deskripsi</th>
+                            <th>Jumlah</th>
+                            <th>Aksi</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {financeReport.transaksi.map((item) => (
+                            <tr key={item.id}>
+                              <td>{formatDate(item.tanggal)}</td>
+                              <td>{transactionTypeLabel(item.tipe)}</td>
+                              <td>
+                                <strong>{item.kategori}</strong>
+                                {item.sumber !== "manual" && <div className="admin-muted">Data lama</div>}
+                              </td>
+                              <td>{item.deskripsi || "-"}</td>
+                              <td>{money(item.jumlah)}</td>
+                              <td>
+                                {item.sumber === "manual" ? (
+                                  <button
+                                    className="admin-icon-btn danger"
+                                    type="button"
+                                    disabled={busyAction === `finance-delete-${item.id}`}
+                                    onClick={() => deleteFinanceTransaction(item.id)}
+                                  >
+                                    Hapus
+                                  </button>
+                                ) : (
+                                  <span className="admin-muted">Migrasi</span>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </section>
+              </div>
+            )}
+
+            {!loadingFinance && !financeReport && (
+              <section className="admin-card">
+                <p className="admin-muted">Laporan keuangan belum bisa dimuat.</p>
+              </section>
+            )}
           </>
         )}
 

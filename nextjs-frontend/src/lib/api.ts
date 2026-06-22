@@ -45,6 +45,8 @@ export type BookingApi = {
   nama_rumah: string;
   alamat: string;
   kota: string;
+  can_cancel?: boolean;
+  next_action?: string;
 };
 
 export type AuthResponse = {
@@ -59,9 +61,37 @@ export type FinanceMonthlyRow = {
   total_transaksi: number;
   total_penjualan: number;
   total_booking_fee: number;
+  total_pemasukan_manual: number;
+  total_pemasukan: number;
+  total_pengeluaran: number;
   biaya_operasional: number;
   laba_bersih: number;
   catatan: string;
+};
+
+export type FinanceAutomaticIncome = {
+  bulan: number;
+  tanggal: string;
+  kategori: string;
+  jumlah: number;
+  booking_id: number;
+  kode_inquiry: string;
+  kode_rumah: string;
+  nama_rumah: string;
+  status: string;
+};
+
+export type FinanceTransaction = {
+  id: number;
+  tanggal: string;
+  tipe: "pemasukan" | "pengeluaran";
+  kategori: string;
+  deskripsi: string;
+  jumlah: number;
+  sumber: string;
+  source_ref: string | null;
+  dibuat_pada: string;
+  diperbarui_pada: string;
 };
 
 export type FinanceReport = {
@@ -70,10 +100,15 @@ export type FinanceReport = {
     total_transaksi: number;
     total_penjualan: number;
     total_booking_fee: number;
+    total_pemasukan_manual: number;
+    total_pemasukan: number;
+    total_pengeluaran: number;
     total_biaya_operasional: number;
     total_laba_bersih: number;
   };
   bulanan: FinanceMonthlyRow[];
+  pemasukan_otomatis: FinanceAutomaticIncome[];
+  transaksi: FinanceTransaction[];
 };
 
 export function makeApiUrl(path: string): string {

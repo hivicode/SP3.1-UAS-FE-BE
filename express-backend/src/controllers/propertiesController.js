@@ -18,7 +18,16 @@ async function getPropertyImages(kodeRumah) {
 
 async function getPropertyStatus(kodeRumah) {
   const rows = await query(
-    "SELECT status FROM booking WHERE kode_rumah = $1 ORDER BY id DESC LIMIT 1",
+    `SELECT status
+     FROM booking
+     WHERE kode_rumah = $1
+       AND status IN ('closed', 'confirmed', 'reserved')
+     ORDER BY CASE
+       WHEN status IN ('closed', 'confirmed') THEN 1
+       WHEN status = 'reserved' THEN 2
+       ELSE 3
+     END, id DESC
+     LIMIT 1`,
     [kodeRumah]
   );
   const row = rows[0];
@@ -26,7 +35,7 @@ async function getPropertyStatus(kodeRumah) {
 
   const status = String(row.status || "").toLowerCase();
   if (status === "closed" || status === "confirmed") return "sold";
-  if (["booking_fee_pending", "reserved", "pending"].includes(status)) return "onbook";
+  if (status === "reserved") return "onbook";
   return "available";
 }
 

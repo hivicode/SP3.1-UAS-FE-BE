@@ -71,3 +71,40 @@ CREATE TABLE IF NOT EXISTS laporan_operasional (
 );
 
 CREATE INDEX IF NOT EXISTS idx_laporan_operasional_tahun ON laporan_operasional (tahun);
+
+CREATE TABLE IF NOT EXISTS transaksi_keuangan (
+  id BIGSERIAL PRIMARY KEY,
+  tanggal DATE NOT NULL DEFAULT CURRENT_DATE,
+  tipe VARCHAR(20) NOT NULL CHECK (tipe IN ('pemasukan', 'pengeluaran')),
+  kategori VARCHAR(100) NOT NULL,
+  deskripsi TEXT DEFAULT '',
+  jumlah BIGINT NOT NULL CHECK (jumlah >= 0),
+  sumber VARCHAR(50) NOT NULL DEFAULT 'manual',
+  source_ref VARCHAR(120),
+  dibuat_pada TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  diperbarui_pada TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT uniq_transaksi_keuangan_source_ref UNIQUE (sumber, source_ref)
+);
+
+CREATE INDEX IF NOT EXISTS idx_transaksi_keuangan_tanggal ON transaksi_keuangan (tanggal);
+CREATE INDEX IF NOT EXISTS idx_transaksi_keuangan_tipe ON transaksi_keuangan (tipe);
+
+INSERT INTO transaksi_keuangan (
+  tanggal, tipe, kategori, deskripsi, jumlah, sumber, source_ref
+)
+SELECT
+  make_date(tahun, bulan, 1),
+  'pengeluaran',
+  'Operasional bulanan',
+  catatan,
+  biaya_operasional,
+  'legacy_operasional',
+  tahun::text || '-' || LPAD(bulan::text, 2, '0')
+FROM laporan_operasional
+WHERE biaya_operasional > 0
+  AND bulan BETWEEN 1 AND 12
+ON CONFLICT (sumber, source_ref) DO UPDATE SET
+  tanggal = EXCLUDED.tanggal,
+  deskripsi = EXCLUDED.deskripsi,
+  jumlah = EXCLUDED.jumlah,
+  diperbarui_pada = CURRENT_TIMESTAMP;

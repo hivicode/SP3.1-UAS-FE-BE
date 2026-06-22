@@ -14,15 +14,25 @@ export default function Footer() {
                   Kami menyambut mereka yang sejalan.
                   Entah Anda mencari ketenangan, ruang untuk bernapas, atau sekadar ritme hidup yang baru — PlanB terbuka untuk Anda.
                 </h3>
-                <Link href="/contact" className="button w-inline-block">
-                  <div className="button-text">
-                    <div className="button_text">Jadwalkan Kunjungan</div>
-                    <div className="button-text-animation">
+                <div className="button-wrap" style={{ display: "flex", gap: ".75rem", flexWrap: "wrap" }}>
+                  <Link href="/contact" className="button w-inline-block">
+                    <div className="button-text">
                       <div className="button_text">Jadwalkan Kunjungan</div>
+                      <div className="button-text-animation">
+                        <div className="button_text">Jadwalkan Kunjungan</div>
+                      </div>
                     </div>
-                  </div>
-                  <img src="https://wubflow-shield.NOCODEXPORT.DEV/685077c466f113761c6d796b/6853ff8bb7215267b2f31695_Kaleo_Icon.svg" loading="lazy" alt="Kaleo Icon" className="button-image" />
-                </Link>
+                    <img src="https://wubflow-shield.NOCODEXPORT.DEV/685077c466f113761c6d796b/6853ff8bb7215267b2f31695_Kaleo_Icon.svg" loading="lazy" alt="Kaleo Icon" className="button-image" />
+                  </Link>
+                  <Link href="/inquiry/status" className="button is-secondary w-inline-block">
+                    <div className="button-text">
+                      <div className="button_text">Cek Inquiry</div>
+                      <div className="button-text-animation">
+                        <div className="button_text">Cek Inquiry</div>
+                      </div>
+                    </div>
+                  </Link>
+                </div>
                 <div className="credits">
                   <div className="copyright">
                     <div className="text-size-regular">Copyright</div>

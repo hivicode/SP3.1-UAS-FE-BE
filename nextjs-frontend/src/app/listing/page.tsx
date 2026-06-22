@@ -18,7 +18,8 @@ export default function ListingPage() {
   const [minBeds, setMinBeds] = useState(0);
   const [minBaths, setMinBaths] = useState(0);
   const [minPrice, setMinPrice] = useState(0);
-  const [maxPrice, setMaxPrice] = useState(5_000_000_000);
+  const [maxPrice, setMaxPrice] = useState(0);
+  const [loadError, setLoadError] = useState("");
   const [features, setFeatures] = useState({
     parking: false,
     pool: false,
@@ -38,8 +39,10 @@ export default function ListingPage() {
       try {
         const data = await apiFetch<PropertyApi[]>("/api/properti");
         setProperties(Array.isArray(data) ? data : []);
-      } catch {
+        setLoadError("");
+      } catch (error) {
         setProperties([]);
+        setLoadError(error instanceof Error ? error.message : "Gagal memuat katalog rumah.");
       } finally {
         setLoading(false);
       }
@@ -62,7 +65,8 @@ export default function ListingPage() {
       if (minBaths && Number(item.kamar_mandi) < minBaths) return false;
 
       const price = Number(item.harga) || 0;
-      if (price < minPrice || price > maxPrice) return false;
+      if (price < minPrice) return false;
+      if (maxPrice > 0 && price > maxPrice) return false;
 
       const featureList = Array.isArray(item.fitur) ? item.fitur : [];
       if (features.parking && !featureList.includes("parking")) return false;
@@ -102,7 +106,7 @@ export default function ListingPage() {
     setMinBeds(0);
     setMinBaths(0);
     setMinPrice(0);
-    setMaxPrice(5_000_000_000);
+    setMaxPrice(0);
     setFeatures({
       parking: false,
       pool: false,
@@ -240,7 +244,9 @@ export default function ListingPage() {
                     <div className="rent-field">
                       <div className="rent-range-head">
                         <label className="text-size-small text-style-allcaps">Price Range</label>
-                        <div id="priceLabel" className="text-size-small text-style-muted">{`${money(minPrice)} - ${money(maxPrice)}`}</div>
+                        <div id="priceLabel" className="text-size-small text-style-muted">
+                          {maxPrice > 0 ? `${money(minPrice)} - ${money(maxPrice)}` : `${money(minPrice)}+`}
+                        </div>
                       </div>
 
                       <div className="rent-range">
@@ -256,8 +262,8 @@ export default function ListingPage() {
                           id="maxPrice"
                           className="form-field w-input"
                           inputMode="numeric"
-                          placeholder="Max (Rp)"
-                          value={maxPrice}
+                          placeholder="Maks tanpa batas"
+                          value={maxPrice || ""}
                           onChange={(event) => setMaxPrice(Number(event.target.value) || 0)}
                         />
                       </div>
@@ -276,9 +282,9 @@ export default function ListingPage() {
                           id="maxPriceRange"
                           type="range"
                           min="0"
-                          max="5000000000"
+                          max="50000000000"
                           step="50000000"
-                          value={maxPrice}
+                          value={maxPrice || 50000000000}
                           onChange={(event) => setMaxPrice(Number(event.target.value))}
                         />
                       </div>
@@ -369,6 +375,12 @@ export default function ListingPage() {
                     </div>
 
                     <div id="cards" className={`rent-cards ${viewMode === "grid" ? "is-grid" : "is-list"}`}>
+                      {loadError && (
+                        <div className="rent-card">
+                          <div className="rent-card-title">Katalog belum bisa dimuat</div>
+                          <div className="text-size-small text-style-muted">{loadError}</div>
+                        </div>
+                      )}
                       {visible.map((property) => {
                         const image = normalizeImageUrl(property.gambar?.[0] || "");
                         const blocked = property.status !== "available";

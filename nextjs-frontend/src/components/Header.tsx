@@ -112,6 +112,14 @@ export default function Header() {
                       <div className="text-size-regular text-weight-medium">Kunjungan</div>
                     </div>
                   </Link>
+                  <Link href="/inquiry/status" className="nav_link w-inline-block" onClick={closeMenu}>
+                    <div className="nav-button_text">
+                      <div className="text-size-regular text-weight-medium">Cek Inquiry</div>
+                    </div>
+                    <div className="nav-button_text is-absolute">
+                      <div className="text-size-regular text-weight-medium">Cek Inquiry</div>
+                    </div>
+                  </Link>
                 </div>
                 <Link href="/listing" className="button is-nav w-inline-block" onClick={closeMenu}>
                   <div className="button-text">

@@ -23,6 +23,7 @@ export default function InquiryPage() {
   const [contactPreference, setContactPreference] = useState("whatsapp");
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState<BookingApi | null>(null);
+  const [copiedCode, setCopiedCode] = useState(false);
 
   useEffect(() => {
     const raw = window.localStorage.getItem("planb_inquiry") || window.localStorage.getItem("planb_purchase");
@@ -96,6 +97,15 @@ export default function InquiryPage() {
         }),
       });
 
+      window.localStorage.setItem(
+        "planb_last_inquiry",
+        JSON.stringify({
+          kode_inquiry: result.kode_inquiry,
+          contact: phone || email,
+          propertyName: property.nama_rumah,
+          createdAt: Date.now(),
+        })
+      );
       window.localStorage.removeItem("planb_inquiry");
       window.localStorage.removeItem("planb_purchase");
       setSubmitted(result);
@@ -103,6 +113,18 @@ export default function InquiryPage() {
       window.alert("Gagal mengirim minat. Coba lagi atau hubungi admin PlanB.");
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const copyInquiryCode = async () => {
+    if (!submitted?.kode_inquiry) return;
+
+    try {
+      await navigator.clipboard.writeText(submitted.kode_inquiry);
+      setCopiedCode(true);
+      window.setTimeout(() => setCopiedCode(false), 1600);
+    } catch {
+      window.prompt("Salin kode inquiry:", submitted.kode_inquiry);
     }
   };
 
@@ -129,7 +151,40 @@ export default function InquiryPage() {
                   <p className="text-size-small text-style-muted">
                     Simpan kode inquiry ini untuk follow-up: <strong>{submitted.kode_inquiry}</strong>
                   </p>
-                  <div className="button-wrap" style={{ marginTop: "1rem" }}>
+                  <div className="rent-summary-lines" style={{ marginTop: "1rem" }}>
+                    <div className="rent-summary-line">
+                      <span>Rumah</span>
+                      <span>{submitted.nama_rumah}</span>
+                    </div>
+                    <div className="rent-summary-line">
+                      <span>Status</span>
+                      <span>{submitted.status === "booking_fee_pending" ? "Menunggu booking fee" : "Inquiry baru"}</span>
+                    </div>
+                    <div className="rent-summary-line">
+                      <span>Cek ulang dengan</span>
+                      <span>Email atau nomor HP yang tadi diisi</span>
+                    </div>
+                  </div>
+                  <p className="text-size-small text-style-muted" style={{ marginTop: "1rem" }}>
+                    Kalau belum booked, inquiry bisa dibatalkan dari halaman cek status. Setelah booked atau sold, hubungi admin agar data tetap rapi.
+                  </p>
+                  <div className="button-wrap" style={{ marginTop: "1rem", display: "flex", gap: ".75rem", flexWrap: "wrap" }}>
+                    <Link href="/inquiry/status" className="button w-inline-block">
+                      <div className="button-text">
+                        <div className="button_text">Cek Status Inquiry</div>
+                        <div className="button-text-animation">
+                          <div className="button_text">Cek Status Inquiry</div>
+                        </div>
+                      </div>
+                    </Link>
+                    <button type="button" className="button is-secondary w-inline-block" onClick={copyInquiryCode}>
+                      <div className="button-text">
+                        <div className="button_text">{copiedCode ? "Kode Disalin" : "Salin Kode"}</div>
+                        <div className="button-text-animation">
+                          <div className="button_text">{copiedCode ? "Kode Disalin" : "Salin Kode"}</div>
+                        </div>
+                      </div>
+                    </button>
                     <Link href="/listing" className="button w-inline-block">
                       <div className="button-text">
                         <div className="button_text">Lihat Rumah Lain</div>
