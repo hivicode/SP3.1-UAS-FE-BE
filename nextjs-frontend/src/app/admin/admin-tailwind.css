@@ -54,6 +54,14 @@
     color: rgba(31, 42, 34, 0.5) !important;
   }
 
+  aside .text-slate-400 {
+    color: rgba(255, 255, 255, 0.5) !important;
+  }
+
+  aside .text-slate-400:hover {
+    color: #ffffff !important;
+  }
+
   /* Olive Green Brand Overrides for Cards/Buttons */
   .bg-\[\#064E3B\] {
     background-color: #264f36 !important;
