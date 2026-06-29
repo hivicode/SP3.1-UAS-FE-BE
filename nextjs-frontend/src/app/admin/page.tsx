@@ -581,7 +581,7 @@ export default function AdminPage() {
             B
           </div>
           <div>
-            <h2 className="font-bold text-white tracking-wide">PlanB Space</h2>
+            <h2 className="font-bold text-white tracking-wide">Kang Haerin</h2>
             <p className="text-[10px] text-emerald-400 uppercase font-bold tracking-widest leading-none mt-0.5">Admin Panel</p>
           </div>
         </div>
