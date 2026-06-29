@@ -1,12 +1,22 @@
+@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f4efe4;
+  --foreground: #1f2a22;
+  --card: #fffaf0;
+  --primary: #111111;
+  --primary-foreground: #ffffff;
+  --secondary: #eee4d1;
+  --muted-foreground: #6c7468;
+  --accent: #264f36;
+  --border: rgba(31, 42, 34, 0.15);
 }
 
 @media (prefers-color-scheme: dark) {
+  /* We keep standard light mode styles for PlanB brand aesthetics */
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: #f4efe4;
+    --foreground: #1f2a22;
   }
 }
 
@@ -14,12 +24,12 @@ html,
 body {
   max-width: 100vw;
   overflow-x: hidden;
+  background: var(--background);
+  color: var(--foreground);
 }
 
 body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -35,13 +45,16 @@ a {
   text-decoration: none;
 }
 
-@media (prefers-color-scheme: dark) {
-  html {
-    color-scheme: dark;
-  }
+/* PlanB Custom Typography Utilities */
+.font-serif {
+  font-family: 'Instrument Serif', Georgia, serif;
 }
 
-/* Keep nav toggle only on mobile, with transparent style */
+.font-mono {
+  font-family: 'DM Mono', monospace;
+}
+
+/* Nav toggle only on mobile */
 @media (min-width: 992px) {
   .nav_button.w-nav-button {
     display: none !important;
@@ -53,7 +66,6 @@ a {
     background: transparent;
     border: 0;
     box-shadow: none;
-    border-radius: 999px;
     width: 46px;
     height: 46px;
     padding: 0;
@@ -63,16 +75,8 @@ a {
   }
 
   .nav_button.w-nav-button .icon.w-icon-nav-menu {
-    color: #fff;
+    color: var(--foreground);
     font-size: 18px;
     line-height: 1;
-    text-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
-  }
-
-  .nav_button.w-nav-button:hover,
-  .nav_button.w-nav-button.w--open {
-    background: transparent;
-    border: 0;
-    box-shadow: none;
   }
 }

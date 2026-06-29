@@ -42,6 +42,10 @@ function normalizeTransactionType(rawType) {
 }
 
 function serializeFinanceTransaction(row) {
+  let booking_ref = null;
+  if (row.source_ref && String(row.sumber).startsWith("manual")) {
+    booking_ref = row.source_ref.split("_")[0];
+  }
   return {
     id: Number(row.id),
     tanggal:
@@ -52,6 +56,7 @@ function serializeFinanceTransaction(row) {
     jumlah: Number(row.jumlah || 0),
     sumber: row.sumber || "manual",
     source_ref: row.source_ref || null,
+    booking_ref: booking_ref,
     dibuat_pada:
       row.dibuat_pada instanceof Date ? row.dibuat_pada.toISOString() : row.dibuat_pada,
     diperbarui_pada:
@@ -227,6 +232,8 @@ async function createFinanceTransaction(req, res, next) {
     const category = String(req.body?.kategori || "").trim().slice(0, 100);
     const description = String(req.body?.deskripsi || "").trim().slice(0, 500);
     const date = parseDateInput(req.body?.tanggal);
+    const sumber = String(req.body?.sumber || "manual").trim().slice(0, 50);
+    let source_ref = req.body?.source_ref ? String(req.body.source_ref).trim() : null;
 
     if (!type) {
       return res.status(400).json({ message: "Tipe transaksi tidak valid." });
@@ -238,12 +245,17 @@ async function createFinanceTransaction(req, res, next) {
       return res.status(400).json({ message: "Jumlah transaksi harus lebih dari 0." });
     }
 
+    if (source_ref && sumber.startsWith("manual")) {
+      const randomSuffix = Math.floor(Math.random() * 1000000);
+      source_ref = `${source_ref}_${Date.now()}_${randomSuffix}`;
+    }
+
     const rows = await query(
       `INSERT INTO transaksi_keuangan (
-         tanggal, tipe, kategori, deskripsi, jumlah, sumber, dibuat_pada, diperbarui_pada
-       ) VALUES ($1, $2, $3, $4, $5, 'manual', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+         tanggal, tipe, kategori, deskripsi, jumlah, sumber, source_ref, dibuat_pada, diperbarui_pada
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
        RETURNING *`,
-      [date, type, category, description, amount]
+      [date, type, category, description, amount, sumber, source_ref]
     );
 
     return res.status(201).json(serializeFinanceTransaction(rows[0]));

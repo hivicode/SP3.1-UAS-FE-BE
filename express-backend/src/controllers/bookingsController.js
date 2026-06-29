@@ -97,7 +97,21 @@ async function findInquiryByCode(code) {
   return rows[0] || null;
 }
 
+async function cancelExpiredBookings() {
+  try {
+    await query(
+      `UPDATE booking 
+       SET status = 'cancelled' 
+       WHERE status IN ('new', 'booking_fee_pending', 'pending') 
+         AND dibuat_pada < CURRENT_TIMESTAMP - INTERVAL '3 days'`
+    );
+  } catch (err) {
+    console.error("Failed to auto-cancel expired bookings:", err);
+  }
+}
+
 async function findVerifiedPublicInquiry(payload) {
+  await cancelExpiredBookings();
   const { code, contact } = parseInquiryLookupPayload(payload);
   if (!code || !contact) {
     return { error: { status: 400, message: "Isi kode inquiry dan email/nomor HP." } };
@@ -118,6 +132,7 @@ async function findVerifiedPublicInquiry(payload) {
 
 async function listBookings(_req, res, next) {
   try {
+    await cancelExpiredBookings();
     const rows = await query(
       `SELECT b.*, p.nama_rumah, p.alamat, p.kota
        FROM booking b

@@ -7,7 +7,8 @@
     "dev": "node src/server.js",
     "start": "node src/server.js",
     "migrate": "node src/db/migrate.js",
-    "migrate:sqlite": "node scripts/migrate-sqlite-to-postgres.js"
+    "migrate:sqlite": "node scripts/migrate-sqlite-to-postgres.js",
+    "import:planb-downloads": "node scripts/import-planb-download-properties.js"
   },
   "keywords": [],
   "author": "",

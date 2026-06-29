@@ -13,7 +13,14 @@ import {
 } from "@/lib/api";
 import { clearAdminToken, getAdminToken, setAdminToken } from "@/lib/auth";
 import { money } from "@/lib/format";
-import "./admin.css";
+import {
+  LayoutDashboard, Users, Wallet, Building2, LogOut,
+  Plus, Trash2, X, Search, DollarSign, Edit, Upload,
+} from "lucide-react";
+
+import "./admin-tailwind.css";
+
+type AdminView = "dashboard" | "inquiries" | "create" | "finance" | "properties";
 
 type PropertyFormState = {
   kode_rumah: string;
@@ -32,66 +39,14 @@ type PropertyFormState = {
   deskripsi: string;
 };
 
-type AdminView = "dashboard" | "inquiries" | "create" | "finance";
-type InquiryStatus =
-  | "new"
-  | "contacted"
-  | "booking_fee_pending"
-  | "reserved"
-  | "closed"
-  | "cancelled";
-
-const INQUIRY_STATUS_OPTIONS: Array<{ value: InquiryStatus; label: string }> = [
-  { value: "new", label: "Baru" },
-  { value: "contacted", label: "Sudah dihubungi" },
-  { value: "booking_fee_pending", label: "Menunggu booking fee" },
-  { value: "reserved", label: "Booking fee diterima" },
-  { value: "closed", label: "Deal/closed" },
-  { value: "cancelled", label: "Batal" },
-];
-
-function inquiryStatusLabel(status: string) {
-  return INQUIRY_STATUS_OPTIONS.find((item) => item.value === status)?.label || status;
-}
-
-type FinanceFormState = {
-  tanggal: string;
-  tipe: "pemasukan" | "pengeluaran";
-  kategori: string;
-  deskripsi: string;
-  jumlah: string;
-};
-
-function todayInputDate() {
-  return new Date().toISOString().slice(0, 10);
-}
-
-function formatDate(value: string) {
-  const [year, month, day] = String(value || "").slice(0, 10).split("-");
-  if (!year || !month || !day) return "-";
-  return `${day}/${month}/${year}`;
-}
-
-function transactionTypeLabel(type: string) {
-  return type === "pemasukan" ? "Pemasukan" : "Pengeluaran";
-}
-
-const emptyFinanceForm: FinanceFormState = {
-  tanggal: todayInputDate(),
-  tipe: "pengeluaran",
-  kategori: "",
-  deskripsi: "",
-  jumlah: "",
-};
-
 const emptyForm: PropertyFormState = {
   kode_rumah: "",
   nama_rumah: "",
   alamat: "",
   kota: "",
-  tipe: "house",
+  tipe: "Rumah",
   harga: "",
-  rating: "",
+  rating: "0",
   kamar_tidur: "",
   kamar_mandi: "",
   luas_tanah: "",
@@ -101,109 +56,100 @@ const emptyForm: PropertyFormState = {
   deskripsi: "",
 };
 
+type FinanceFormState = {
+  tanggal: string;
+  tipe: "pemasukan" | "pengeluaran";
+  kategori: string;
+  jumlah: string;
+  deskripsi: string;
+};
+
+const emptyFinanceForm: FinanceFormState = {
+  tanggal: new Date().toISOString().slice(0, 10),
+  tipe: "pengeluaran",
+  kategori: "",
+  jumlah: "",
+  deskripsi: "",
+};
+
+const INCOME_CATS = [
+  "Penjualan properti",
+  "Booking fee",
+  "Komisi referral",
+  "Jasa konsultasi",
+  "Fee negosiasi",
+  "Uang muka deal",
+  "Pemasukan lainnya"
+];
+
+const EXPENSE_CATS = [
+  "Iklan digital",
+  "Notaris",
+  "Operasional",
+  "Dokumen",
+  "Transport",
+  "Komisi staf",
+  "Pengeluaran lainnya"
+];
+
+const INQUIRY_STATUS_CFG: Record<string, { label: string; dot: string; badge: string }> = {
+  new: { label: "Baru", dot: "bg-blue-500", badge: "bg-blue-50 text-blue-700" },
+  contacted: { label: "Dihubungi", dot: "bg-violet-500", badge: "bg-violet-50 text-violet-700" },
+  booking_fee_pending: { label: "Menunggu BF", dot: "bg-amber-500", badge: "bg-amber-50 text-amber-700" },
+  reserved: { label: "Booked", dot: "bg-teal-500", badge: "bg-teal-50 text-teal-700" },
+  closed: { label: "Deal / Closed", dot: "bg-emerald-500", badge: "bg-emerald-50 text-emerald-700" },
+  cancelled: { label: "Dibatalkan", dot: "bg-slate-400", badge: "bg-slate-100 text-slate-500" },
+};
+
+const MONTH_NAMES = [
+  "Januari", "Februari", "Maret", "April", "Mei", "Juni",
+  "Juli", "Agustus", "September", "Oktober", "November", "Desember",
+];
+
+function shortDate(dateStr: string): string {
+  try {
+    return new Date(dateStr).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" });
+  } catch {
+    return dateStr;
+  }
+}
+
 export default function AdminPage() {
   const [view, setView] = useState<AdminView>("dashboard");
   const [token, setToken] = useState("");
   const [checkingSession, setCheckingSession] = useState(true);
   const [loginError, setLoginError] = useState("");
+
   const [properties, setProperties] = useState<PropertyApi[]>([]);
   const [bookings, setBookings] = useState<BookingApi[]>([]);
+  const [financeReport, setFinanceReport] = useState<FinanceReport | null>(null);
+
+  // Forms
   const [form, setForm] = useState<PropertyFormState>(emptyForm);
   const [editCode, setEditCode] = useState("");
   const [uploadFiles, setUploadFiles] = useState<FileList | null>(null);
-  const [loadingData, setLoadingData] = useState(false);
-  const [busyAction, setBusyAction] = useState("");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [page, setPage] = useState(1);
-  const [perPage, setPerPage] = useState(10);
-  const [financeYear, setFinanceYear] = useState(new Date().getFullYear());
-  const [financeReport, setFinanceReport] = useState<FinanceReport | null>(null);
   const [financeForm, setFinanceForm] = useState<FinanceFormState>(emptyFinanceForm);
+
+  // Filters
+  const [searchQuery, setSearchQuery] = useState("");
+  const [bookingStatusFilter, setBookingStatusFilter] = useState<string>("all");
+  const [financeYear, setFinanceYear] = useState(new Date().getFullYear());
+  const [fromMonth, setFromMonth] = useState(1);
+  const [toMonth, setToMonth] = useState(12);
+
+  // Modals/Loading States
+  const [busyAction, setBusyAction] = useState("");
+  const [loadingData, setLoadingData] = useState(false);
   const [loadingFinance, setLoadingFinance] = useState(false);
+  const [dealModalBooking, setDealModalBooking] = useState<BookingApi | null>(null);
+  const [dealForm, setDealForm] = useState({
+    tanggal: new Date().toISOString().slice(0, 10),
+    kategori: "Penjualan properti",
+    jumlah: "",
+    deskripsi: "",
+  });
 
   const isEditing = Boolean(editCode);
-
-  const bookingStats = useMemo(() => {
-    const base = {
-      total: bookings.length,
-      new: 0,
-      contacted: 0,
-      booking_fee_pending: 0,
-      reserved: 0,
-      closed: 0,
-      cancelled: 0,
-    };
-    bookings.forEach((item) => {
-      const status = item.status as InquiryStatus;
-      if (status in base) base[status] += 1;
-    });
-    return base;
-  }, [bookings]);
-
-  const filteredProperties = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
-    if (!q) return properties;
-    return properties.filter((property) =>
-      `${property.nama_rumah} ${property.alamat} ${property.kota}`.toLowerCase().includes(q)
-    );
-  }, [properties, searchQuery]);
-
-  const totalPages = useMemo(
-    () => Math.max(1, Math.ceil(filteredProperties.length / perPage)),
-    [filteredProperties.length, perPage]
-  );
-
-  const pagedProperties = useMemo(() => {
-    const offset = (page - 1) * perPage;
-    return filteredProperties.slice(offset, offset + perPage);
-  }, [filteredProperties, page, perPage]);
-
-  const topType = useMemo(() => {
-    if (pagedProperties.length === 0) return "-";
-    const counts = pagedProperties.reduce<Record<string, number>>((acc, item) => {
-      const key = item.tipe || "-";
-      acc[key] = (acc[key] || 0) + 1;
-      return acc;
-    }, {});
-    return Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0];
-  }, [pagedProperties]);
-
-  useEffect(() => {
-    setPage(1);
-  }, [searchQuery, perPage]);
-
-  useEffect(() => {
-    if (page > totalPages) {
-      setPage(totalPages);
-    }
-  }, [page, totalPages]);
-
-  const fillFromProperty = (property: PropertyApi) => {
-    setView("create");
-    setEditCode(property.kode_rumah);
-    setForm({
-      kode_rumah: property.kode_rumah,
-      nama_rumah: property.nama_rumah,
-      alamat: property.alamat,
-      kota: property.kota,
-      tipe: property.tipe,
-      harga: String(property.harga),
-      rating: String(property.rating ?? 0),
-      kamar_tidur: String(property.kamar_tidur),
-      kamar_mandi: String(property.kamar_mandi),
-      luas_tanah: String(property.luas_tanah),
-      luas_bangunan: String(property.luas_bangunan),
-      garasi: String(property.garasi),
-      fitur: Array.isArray(property.fitur) ? property.fitur.join(", ") : "",
-      deskripsi: property.deskripsi || "",
-    });
-  };
-
-  const resetForm = () => {
-    setForm(emptyForm);
-    setEditCode("");
-    setUploadFiles(null);
-  };
 
   const loadFinance = useCallback(async (authToken: string, year = financeYear) => {
     setLoadingFinance(true);
@@ -212,6 +158,8 @@ export default function AdminPage() {
         headers: withAuth(authToken),
       });
       setFinanceReport(report);
+    } catch {
+      // Ignore
     } finally {
       setLoadingFinance(false);
     }
@@ -228,6 +176,8 @@ export default function AdminPage() {
       ]);
       setProperties(propertyData);
       setBookings(bookingData);
+    } catch {
+      // Ignore
     } finally {
       setLoadingData(false);
     }
@@ -255,10 +205,59 @@ export default function AdminPage() {
 
   useEffect(() => {
     if (!token) return;
-    loadFinance(token, financeYear).catch(() => {
-      // keep current report if request fails
-    });
+    loadFinance(token, financeYear).catch(() => {});
   }, [token, financeYear, loadFinance]);
+
+  // Derived dashboard metrics
+  const stats = useMemo(() => {
+    const totalUnit = properties.length;
+    const soldUnit = properties.filter((p) => p.status === "sold").length;
+    const bookedUnit = bookings.filter((b) => b.status === "reserved").length;
+    const cleanLaba = financeReport?.summary?.total_laba_bersih || 0;
+
+    return { totalUnit, soldUnit, bookedUnit, cleanLaba };
+  }, [properties, bookings, financeReport]);
+
+  const filteredBookings = useMemo(() => {
+    let list = bookings;
+    if (bookingStatusFilter !== "all") {
+      list = list.filter((b) => b.status === bookingStatusFilter);
+    }
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      list = list.filter((b) =>
+        `${b.nama_depan} ${b.nama_belakang} ${b.email} ${b.kode_inquiry} ${b.nama_rumah}`
+          .toLowerCase()
+          .includes(q)
+      );
+    }
+    return list;
+  }, [bookings, bookingStatusFilter, searchQuery]);
+
+  // Finance Range Filter
+  const filteredMonthlyRows = useMemo(() => {
+    if (!financeReport?.bulanan) return [];
+    return financeReport.bulanan.filter((row) => row.bulan >= fromMonth && row.bulan <= toMonth);
+  }, [financeReport?.bulanan, fromMonth, toMonth]);
+
+  const filteredTransactions = useMemo(() => {
+    if (!financeReport?.transaksi) return [];
+    return financeReport.transaksi.filter((t) => {
+      const m = new Date(t.tanggal).getMonth() + 1;
+      return m >= fromMonth && m <= toMonth;
+    });
+  }, [financeReport?.transaksi, fromMonth, toMonth]);
+
+  const rangeSummary = useMemo(() => {
+    return filteredMonthlyRows.reduce(
+      (acc, row) => ({
+        total_pemasukan: acc.total_pemasukan + row.total_pemasukan,
+        total_pengeluaran: acc.total_pengeluaran + row.total_pengeluaran,
+        laba_bersih: acc.laba_bersih + row.laba_bersih,
+      }),
+      { total_pemasukan: 0, total_pengeluaran: 0, laba_bersih: 0 }
+    );
+  }, [filteredMonthlyRows]);
 
   const handleLogin = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -279,14 +278,7 @@ export default function AdminPage() {
       setToken(result.token);
       await loadDashboard(result.token);
     } catch (error) {
-      const message = error instanceof Error ? error.message : "";
-      if (/failed to fetch/i.test(message)) {
-        setLoginError("Gagal terhubung ke server API. Cek NEXT_PUBLIC_API_URL dan CORS.");
-      } else if (message) {
-        setLoginError(message);
-      } else {
-        setLoginError("Username atau password salah.");
-      }
+      setLoginError(error instanceof Error ? error.message : "Gagal Login.");
     } finally {
       setBusyAction("");
     }
@@ -297,7 +289,7 @@ export default function AdminPage() {
     setToken("");
     setProperties([]);
     setBookings([]);
-    resetForm();
+    setView("dashboard");
   };
 
   const submitProperty = async (event: FormEvent<HTMLFormElement>) => {
@@ -329,18 +321,18 @@ export default function AdminPage() {
     try {
       const path = isEditing ? `/api/properti/${encodeURIComponent(editCode)}` : "/api/properti";
       const method = isEditing ? "PUT" : "POST";
-      const headers = withAuth(token);
-
+      
       await fetch(makeApiUrl(path), {
         method,
-        headers,
+        headers: withAuth(token),
         body: payload,
-      }).then(async (response) => {
-        if (!response.ok) throw new Error(await response.text());
+      }).then(async (res) => {
+        if (!res.ok) throw new Error(await res.text());
       });
 
       await loadDashboard(token);
       resetForm();
+      setView("properties");
     } catch {
       window.alert("Gagal menyimpan properti.");
     } finally {
@@ -357,7 +349,6 @@ export default function AdminPage() {
         headers: withAuth(token),
       });
       await loadDashboard(token);
-      if (editCode === kode) resetForm();
     } catch {
       window.alert("Gagal menghapus properti.");
     } finally {
@@ -365,7 +356,7 @@ export default function AdminPage() {
     }
   };
 
-  const updateBookingStatus = async (bookingId: number, status: InquiryStatus) => {
+  const updateBookingStatus = async (bookingId: number, status: string) => {
     if (!token) return;
     setBusyAction(`booking-${bookingId}`);
     try {
@@ -380,7 +371,7 @@ export default function AdminPage() {
       await loadDashboard(token);
       await loadFinance(token, financeYear);
     } catch {
-      window.alert("Gagal update status booking.");
+      window.alert("Gagal update status.");
     } finally {
       setBusyAction("");
     }
@@ -417,7 +408,60 @@ export default function AdminPage() {
       });
       await loadFinance(token, financeYear);
     } catch {
-      window.alert("Gagal menyimpan transaksi keuangan.");
+      window.alert("Gagal menyimpan transaksi.");
+    } finally {
+      setBusyAction("");
+    }
+  };
+
+  const saveDealTransaction = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!token || !dealModalBooking) return;
+    if (!dealForm.kategori || Number(dealForm.jumlah || 0) <= 0) {
+      window.alert("Isi kategori dan jumlah transaksi deal.");
+      return;
+    }
+
+    setBusyAction("deal-add");
+    try {
+      await apiFetch("/api/finance/transactions", {
+        method: "POST",
+        headers: {
+          ...withAuth(token),
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          tanggal: dealForm.tanggal,
+          tipe: "pemasukan",
+          kategori: dealForm.kategori,
+          deskripsi: dealForm.deskripsi || `Deal manual – ${dealModalBooking.nama_depan} ${dealModalBooking.nama_belakang}`,
+          jumlah: Number(dealForm.jumlah),
+          sumber: "manual",
+          source_ref: dealModalBooking.kode_inquiry,
+        }),
+      });
+
+      // Update status booking target ke 'closed'
+      await apiFetch(`/api/booking/${dealModalBooking.id}/status`, {
+        method: "PATCH",
+        headers: {
+          ...withAuth(token),
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ status: "closed" }),
+      });
+
+      setDealModalBooking(null);
+      setDealForm({
+        tanggal: new Date().toISOString().slice(0, 10),
+        kategori: "Penjualan properti",
+        jumlah: "",
+        deskripsi: "",
+      });
+      await loadDashboard(token);
+      await loadFinance(token, financeYear);
+    } catch {
+      window.alert("Gagal menyimpan deal penjualan.");
     } finally {
       setBusyAction("");
     }
@@ -425,8 +469,7 @@ export default function AdminPage() {
 
   const deleteFinanceTransaction = async (transactionId: number) => {
     if (!token) return;
-    const confirmed = window.confirm("Hapus transaksi manual ini?");
-    if (!confirmed) return;
+    if (!window.confirm("Hapus transaksi ini?")) return;
 
     setBusyAction(`finance-delete-${transactionId}`);
     try {
@@ -442,648 +485,994 @@ export default function AdminPage() {
     }
   };
 
+  const fillFromProperty = (property: PropertyApi) => {
+    setView("create");
+    setEditCode(property.kode_rumah);
+    setForm({
+      kode_rumah: property.kode_rumah,
+      nama_rumah: property.nama_rumah,
+      alamat: property.alamat,
+      kota: property.kota,
+      tipe: property.tipe,
+      harga: String(property.harga),
+      rating: String(property.rating ?? 0),
+      kamar_tidur: String(property.kamar_tidur),
+      kamar_mandi: String(property.kamar_mandi),
+      luas_tanah: String(property.luas_tanah),
+      luas_bangunan: String(property.luas_bangunan),
+      garasi: String(property.garasi),
+      fitur: Array.isArray(property.fitur) ? property.fitur.join(", ") : "",
+      deskripsi: property.deskripsi || "",
+    });
+  };
+
+  const resetForm = () => {
+    setForm(emptyForm);
+    setEditCode("");
+    setUploadFiles(null);
+  };
+
   if (checkingSession) {
-    return <main className="admin-login-wrap">Memeriksa sesi admin...</main>;
+    return (
+      <div className="min-h-screen bg-[#0D1117] flex items-center justify-center text-white/70 text-sm font-mono">
+        Verifikasi sesi admin...
+      </div>
+    );
   }
 
   if (!token) {
     return (
-      <main className="admin-login-wrap">
-        <section className="admin-card admin-login-card admin-grid">
-          <div>
-            <h1 className="admin-title">Admin Login</h1>
-            <p className="admin-subtitle">Gunakan akun default: admin / admin</p>
+      <div
+        className="min-h-screen flex items-center justify-center p-4 font-sans"
+        style={{ background: "linear-gradient(135deg, #0D1117 0%, #064E3B 100%)" }}
+      >
+        <div className="w-full max-w-sm">
+          <div className="text-center mb-8">
+            <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-white/10 text-white font-bold text-xl mb-4 font-serif">
+              B
+            </div>
+            <h1 className="text-xl font-semibold text-white font-serif tracking-wide">PlanB Admin</h1>
+            <p className="text-sm text-white/50 mt-1">Dashboard manajemen properti</p>
           </div>
-          <form onSubmit={handleLogin} className="admin-grid">
-            <input className="admin-input" name="username" placeholder="Username" defaultValue="admin" required />
-            <input className="admin-input" name="password" type="password" placeholder="Password" defaultValue="admin" required />
-            <button className="admin-btn" type="submit" disabled={busyAction === "login"}>
-              {busyAction === "login" ? "Memproses..." : "Login"}
+          
+          <form onSubmit={handleLogin} className="bg-white rounded-2xl p-6 space-y-4 shadow-2xl">
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1.5">Username</label>
+              <input 
+                name="username" 
+                defaultValue="admin" 
+                required 
+                className="w-full px-3 py-2.5 text-sm border border-black/10 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1.5">Password</label>
+              <input 
+                name="password" 
+                type="password" 
+                defaultValue="admin" 
+                required 
+                className="w-full px-3 py-2.5 text-sm border border-black/10 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+              />
+            </div>
+            
+            {loginError && <p className="text-xs text-red-600 text-center">{loginError}</p>}
+            
+            <button 
+              type="submit" 
+              className="w-full py-2.5 bg-[#064E3B] hover:bg-[#053d2f] text-white text-sm font-semibold rounded-lg transition-colors uppercase tracking-wider mt-4"
+              disabled={busyAction === "login"}
+            >
+              {busyAction === "login" ? "Memproses..." : "Masuk"}
             </button>
-            {loginError && <p className="admin-muted" style={{ color: "#a02020" }}>{loginError}</p>}
           </form>
-        </section>
-      </main>
+        </div>
+      </div>
     );
   }
 
   return (
-    <div className="admin-shell">
-      <aside className="admin-sidebar">
-        <div className="admin-brand">
-          <div className="admin-brand-mark">B</div>
+    <div className="min-h-screen bg-[#F9FBFC] text-slate-800 flex font-sans">
+      
+      {/* Sidebar navigation */}
+      <aside className="w-64 bg-slate-900 text-slate-300 flex-shrink-0 flex flex-col">
+        <div className="p-6 border-b border-slate-800 flex items-center gap-3">
+          <div className="w-8 h-8 rounded-lg bg-emerald-600 text-white font-bold text-lg flex items-center justify-center font-serif">
+            B
+          </div>
           <div>
-            <p style={{ margin: 0, fontWeight: 700 }}>PlanB</p>
-            <small className="admin-muted">Admin Panel</small>
+            <h2 className="font-bold text-white tracking-wide">PlanB Space</h2>
+            <p className="text-[10px] text-emerald-400 uppercase font-bold tracking-widest leading-none mt-0.5">Admin Panel</p>
           </div>
         </div>
-        <nav className="admin-nav">
-          <button className={`admin-nav-btn ${view === "dashboard" ? "active" : ""}`} type="button" onClick={() => setView("dashboard")}>
-            Dashboard
+
+        <nav className="flex-1 p-4 space-y-1">
+          <button 
+            onClick={() => { setView("dashboard"); resetForm(); }}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${view === "dashboard" ? "bg-slate-800 text-white" : "hover:bg-slate-800/50 hover:text-white"}`}
+          >
+            <LayoutDashboard size={16} /> Dashboard
           </button>
-          <button className={`admin-nav-btn ${view === "inquiries" ? "active" : ""}`} type="button" onClick={() => setView("inquiries")}>
-            Inquiry
+          <button 
+            onClick={() => { setView("inquiries"); resetForm(); }}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${view === "inquiries" ? "bg-slate-800 text-white" : "hover:bg-slate-800/50 hover:text-white"}`}
+          >
+            <Users size={16} /> Inquiries / Booking
           </button>
-          <button className={`admin-nav-btn ${view === "create" ? "active" : ""}`} type="button" onClick={() => setView("create")}>
-            {isEditing ? "Edit Properti" : "Tambah Properti"}
+          <button 
+            onClick={() => { setView("properties"); resetForm(); }}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${view === "properties" ? "bg-slate-800 text-white" : "hover:bg-slate-800/50 hover:text-white"}`}
+          >
+            <Building2 size={16} /> Properti Unit
           </button>
-          <button className={`admin-nav-btn ${view === "finance" ? "active" : ""}`} type="button" onClick={() => setView("finance")}>
-            Laporan Keuangan
+          <button 
+            onClick={() => { setView("finance"); resetForm(); }}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${view === "finance" ? "bg-slate-800 text-white" : "hover:bg-slate-800/50 hover:text-white"}`}
+          >
+            <Wallet size={16} /> Laporan Keuangan
+          </button>
+          <button 
+            onClick={() => { setView("create"); resetForm(); }}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${view === "create" ? "bg-slate-800 text-white" : "hover:bg-slate-800/50 hover:text-white"}`}
+          >
+            <Plus size={16} /> {isEditing ? "Edit Unit" : "Tambah Unit"}
           </button>
         </nav>
-        <div style={{ marginTop: "auto" }}>
-          <button className="admin-btn" type="button" onClick={handleLogout}>Logout</button>
+
+        <div className="p-4 border-t border-slate-800">
+          <button 
+            onClick={handleLogout}
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
+          >
+            <LogOut size={16} /> Keluar
+          </button>
         </div>
       </aside>
 
-      <main className="admin-content">
+      {/* Main Content Area */}
+      <main className="flex-1 overflow-y-auto">
+
+        {/* ══ DASHBOARD VIEW ══ */}
         {view === "dashboard" && (
-          <>
-            <div className="admin-header">
+          <div className="p-8 space-y-8">
+            <div className="flex items-center justify-between">
               <div>
-                <h1 className="admin-title">Dashboard</h1>
-                <p className="admin-subtitle">Ringkasan listing dan kondisi terbaru properti.</p>
+                <h1 className="text-2xl font-serif font-semibold text-slate-900 tracking-wide">Ringkasan Dashboard</h1>
+                <p className="text-sm text-slate-400 mt-0.5">Pantau status listing, reservasi unit, dan keuangan hari ini</p>
               </div>
-              <button className="admin-btn" type="button" onClick={() => setView("create")}>Tambah Properti</button>
             </div>
 
-            <div className="admin-stats">
-              <div className="admin-stat-card">
-                <div className="admin-stat-title">Total Listing</div>
-                <div className="admin-stat-value">{filteredProperties.length}</div>
-                <div className="admin-muted">Tersimpan di database.</div>
+            {/* Metric widgets */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
+              <div className="bg-white border border-slate-200/80 rounded-xl p-5 shadow-sm">
+                <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400">Total Properti</p>
+                <p className="mt-1.5 text-2xl font-semibold leading-none font-mono text-slate-900">{stats.totalUnit} Unit</p>
               </div>
-              <div className="admin-stat-card">
-                <div className="admin-stat-title">Tipe Teratas</div>
-                <div className="admin-stat-value">{topType}</div>
-                <div className="admin-muted">Kategori terbanyak.</div>
+              <div className="bg-white border border-slate-200/80 rounded-xl p-5 shadow-sm">
+                <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400">Unit Terjual (Sold)</p>
+                <p className="mt-1.5 text-2xl font-semibold leading-none font-mono text-slate-900">{stats.soldUnit} Unit</p>
               </div>
-              <div className="admin-stat-card">
-                <div className="admin-stat-title">Inquiry Masuk</div>
-                <div className="admin-stat-value">{bookingStats.total}</div>
-                <div className="admin-muted">
-                  Baru: {bookingStats.new}, Dihubungi: {bookingStats.contacted}, Booking fee: {bookingStats.reserved}
+              <div className="bg-white border border-slate-200/80 rounded-xl p-5 shadow-sm">
+                <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400">Unit Terpesan (Booked)</p>
+                <p className="mt-1.5 text-2xl font-semibold leading-none font-mono text-slate-900">{stats.bookedUnit} Unit</p>
+              </div>
+              <div className="bg-[#064E3B] border border-transparent rounded-xl p-5 shadow-sm text-white">
+                <p className="text-[11px] font-bold uppercase tracking-widest text-emerald-300">Total Laba Bersih</p>
+                <p className="mt-1.5 text-2xl font-semibold leading-none font-mono">{money(stats.cleanLaba)}</p>
+              </div>
+            </div>
+
+            {/* Quick tables grids */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              
+              {/* Recent Inquiries */}
+              <div className="bg-white border border-slate-200/80 rounded-xl shadow-sm overflow-hidden">
+                <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+                  <h3 className="text-sm font-semibold text-slate-900">Inquiry Terbaru</h3>
+                  <button onClick={() => setView("inquiries")} className="text-xs text-emerald-600 hover:text-emerald-700 font-semibold">Lihat Semua</button>
+                </div>
+                <div className="divide-y divide-slate-100">
+                  {bookings.slice(0, 5).map((b) => (
+                    <div key={b.id} className="p-4 flex items-center justify-between hover:bg-slate-50/50 transition-colors">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-semibold text-slate-800">{b.nama_depan} {b.nama_belakang}</p>
+                          <span className="font-mono text-[9px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded">{b.kode_inquiry}</span>
+                        </div>
+                        <p className="text-xs text-slate-400 mt-1">{b.nama_rumah} · {b.preferensi_kontak}</p>
+                      </div>
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-medium ${INQUIRY_STATUS_CFG[b.status as string]?.badge || "bg-slate-100 text-slate-600"}`}>
+                        {INQUIRY_STATUS_CFG[b.status as string]?.label || b.status}
+                      </span>
+                    </div>
+                  ))}
+                  {bookings.length === 0 && (
+                    <div className="p-8 text-center text-slate-400 text-sm">Belum ada inquiry masuk.</div>
+                  )}
                 </div>
               </div>
+
+              {/* Recent Transactions */}
+              <div className="bg-white border border-slate-200/80 rounded-xl shadow-sm overflow-hidden">
+                <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+                  <h3 className="text-sm font-semibold text-slate-900">Transaksi Terakhir</h3>
+                  <button onClick={() => setView("finance")} className="text-xs text-emerald-600 hover:text-emerald-700 font-semibold">Lihat Semua</button>
+                </div>
+                <div className="divide-y divide-slate-100">
+                  {financeReport?.transaksi?.slice(0, 5).map((t) => (
+                    <div key={t.id} className="p-4 flex items-center justify-between hover:bg-slate-50/50 transition-colors">
+                      <div>
+                        <p className="text-sm font-semibold text-slate-800">{t.kategori}</p>
+                        <p className="text-xs text-slate-400 mt-1">{shortDate(t.tanggal)} · {t.deskripsi}</p>
+                      </div>
+                      <span className={`font-mono text-sm font-semibold ${t.tipe === "pemasukan" ? "text-emerald-600" : "text-red-500"}`}>
+                        {t.tipe === "pemasukan" ? "+" : "-"}{money(t.jumlah)}
+                      </span>
+                    </div>
+                  ))}
+                  {(!financeReport?.transaksi || financeReport.transaksi.length === 0) && (
+                    <div className="p-8 text-center text-slate-400 text-sm">Belum ada transaksi tercatat.</div>
+                  )}
+                </div>
+              </div>
+
+            </div>
+          </div>
+        )}
+
+        {/* ══ INQUIRIES VIEW ══ */}
+        {view === "inquiries" && (
+          <div className="p-8 space-y-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-2xl font-serif font-semibold text-slate-900 tracking-wide">Kelola Inquiry</h1>
+                <p className="text-sm text-slate-400 mt-0.5">Verifikasi booking fee dan atur status komunikasi calon pembeli</p>
+              </div>
             </div>
 
-            <section className="admin-card" style={{ marginTop: "1.5rem" }}>
-              <div className="admin-toolbar">
-                <input
-                  className="admin-input"
-                  placeholder="Cari nama properti, alamat, atau kota..."
+            {/* Filter bar */}
+            <div className="flex flex-col md:flex-row gap-4 bg-white border border-slate-200/80 rounded-xl p-4 shadow-sm">
+              <div className="flex-1 relative">
+                <Search size={16} className="absolute left-3.5 top-3.5 text-slate-400" />
+                <input 
+                  type="text" 
                   value={searchQuery}
-                  onChange={(event) => setSearchQuery(event.target.value)}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Cari nama, email, kode inquiry, atau nama unit..."
+                  className="w-full pl-10 pr-4 py-2.5 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-emerald-500 bg-white"
                 />
-                <select
-                  className="admin-select"
-                  value={String(perPage)}
-                  onChange={(event) => setPerPage(Number(event.target.value) || 10)}
+              </div>
+              <div className="w-56">
+                <select 
+                  value={bookingStatusFilter} 
+                  onChange={(e) => setBookingStatusFilter(e.target.value)}
+                  className="w-full px-3 py-2.5 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-emerald-500 bg-white"
                 >
-                  <option value="5">5 / page</option>
-                  <option value="10">10 / page</option>
-                  <option value="20">20 / page</option>
-                  <option value="50">50 / page</option>
+                  <option value="all">Semua Status</option>
+                  {Object.entries(INQUIRY_STATUS_CFG).map(([key, item]) => (
+                    <option key={key} value={key}>{item.label}</option>
+                  ))}
                 </select>
               </div>
-              {loadingData && <p className="admin-muted">Memuat data dashboard...</p>}
-              {!loadingData && filteredProperties.length === 0 && <p className="admin-muted">Belum ada data properti.</p>}
-              {!loadingData && filteredProperties.length > 0 && (
-                <table className="admin-table">
-                  <thead>
-                    <tr>
-                      <th>Kode</th>
-                      <th>Nama</th>
-                      <th>Alamat</th>
-                      <th>Harga</th>
-                      <th>Gambar</th>
-                      <th>Aksi</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {pagedProperties.map((property) => (
-                      <tr key={property.kode_rumah}>
-                        <td>{property.kode_rumah}</td>
-                        <td>
-                          <strong>{property.nama_rumah}</strong>
-                          <div className="admin-muted">{property.kota} • {property.tipe}</div>
-                        </td>
-                        <td>{property.alamat}</td>
-                        <td>{money(property.harga)}</td>
-                        <td>
-                          <div className="admin-thumbs">
-                            {(property.gambar || []).slice(0, 3).map((image, index) => (
-                              <img key={`${property.kode_rumah}-${index}`} src={normalizeImageUrl(image)} alt={property.nama_rumah} />
-                            ))}
-                          </div>
-                        </td>
-                        <td>
-                          <div className="admin-actions">
-                            <button className="admin-icon-btn" type="button" onClick={() => fillFromProperty(property)}>
-                              Edit
-                            </button>
-                            <button
-                              className="admin-icon-btn danger"
-                              type="button"
-                              onClick={() => deleteProperty(property.kode_rumah)}
-                              disabled={busyAction === `delete-${property.kode_rumah}`}
-                            >
-                              Hapus
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-              {!loadingData && filteredProperties.length > 0 && (
-                <div className="admin-pagination">
-                  <button
-                    className="admin-btn secondary"
-                    type="button"
-                    disabled={page <= 1}
-                    onClick={() => setPage((prev) => Math.max(1, prev - 1))}
-                  >
-                    Prev
-                  </button>
-                  <span className="admin-muted">
-                    Page {page} / {totalPages} • {filteredProperties.length} items
-                  </span>
-                  <button
-                    className="admin-btn secondary"
-                    type="button"
-                    disabled={page >= totalPages}
-                    onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}
-                  >
-                    Next
-                  </button>
-                </div>
-              )}
-            </section>
-          </>
-        )}
-
-        {view === "inquiries" && (
-          <>
-            <div className="admin-header">
-              <div>
-                <h1 className="admin-title">Inquiry</h1>
-                <p className="admin-subtitle">Minat calon pembeli yang perlu dihubungi admin.</p>
-              </div>
-            </div>
-            <section className="admin-card">
-              {!bookings.length && <p className="admin-muted">Belum ada inquiry masuk.</p>}
-              {bookings.length > 0 && (
-                <table className="admin-table">
-                  <thead>
-                    <tr>
-                      <th>Kode</th>
-                      <th>Nama</th>
-                      <th>Properti</th>
-                      <th>Kontak</th>
-                      <th>Minat</th>
-                      <th>Status</th>
-                      <th>Booking Fee</th>
-                      <th>Tanggal</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {bookings.map((booking) => (
-                      <tr key={booking.id}>
-                        <td>
-                          <strong>{booking.kode_inquiry}</strong>
-                          {booking.jadwal_kunjungan && (
-                            <div className="admin-muted">
-                              Visit: {new Date(booking.jadwal_kunjungan).toLocaleString("id-ID")}
-                            </div>
-                          )}
-                        </td>
-                        <td>
-                          <strong>{booking.nama_depan} {booking.nama_belakang}</strong>
-                          <div className="admin-muted">ID internal {booking.id}</div>
-                        </td>
-                        <td>
-                          <div>{booking.nama_rumah}</div>
-                          <div className="admin-muted">{booking.alamat}, {booking.kota}</div>
-                        </td>
-                        <td>
-                          <div>{booking.email}</div>
-                          <div className="admin-muted">{booking.telepon}</div>
-                          <div className="admin-muted">Preferensi: {booking.preferensi_kontak}</div>
-                        </td>
-                        <td>
-                          <div>{booking.metode_pembayaran}</div>
-                          {booking.catatan && <div className="admin-muted">{booking.catatan}</div>}
-                        </td>
-                        <td>
-                          <div className="admin-actions">
-                            <select
-                              className="admin-select"
-                              value={booking.status}
-                              onChange={(event) =>
-                                updateBookingStatus(
-                                  booking.id,
-                                  event.target.value as InquiryStatus
-                                )
-                              }
-                              disabled={busyAction === `booking-${booking.id}`}
-                            >
-                              {INQUIRY_STATUS_OPTIONS.map((option) => (
-                                <option key={option.value} value={option.value}>
-                                  {option.label}
-                                </option>
-                              ))}
-                            </select>
-                            <div className="admin-muted">{inquiryStatusLabel(booking.status)}</div>
-                          </div>
-                        </td>
-                        <td>{money(booking.booking_fee)}</td>
-                        <td className="admin-muted">
-                          {new Date(booking.dibuat_pada).toLocaleString("id-ID")}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </section>
-          </>
-        )}
-
-        {view === "finance" && (
-          <>
-            <div className="admin-header">
-              <div>
-                <h1 className="admin-title">Laporan Keuangan</h1>
-                <p className="admin-subtitle">
-                  Pemasukan otomatis dari unit booked/sold, pengeluaran dicatat detail, laba rugi dihitung otomatis.
-                </p>
-              </div>
-              <div className="admin-actions">
-                <input
-                  className="admin-input"
-                  style={{ width: "120px" }}
-                  type="number"
-                  min={2000}
-                  max={2100}
-                  value={financeYear}
-                  onChange={(event) => setFinanceYear(Number(event.target.value) || new Date().getFullYear())}
-                />
-              </div>
             </div>
 
-            {financeReport && (
-              <div className="admin-stats" style={{ marginBottom: "1rem" }}>
-                <div className="admin-stat-card">
-                  <div className="admin-stat-title">Total Pemasukan ({financeReport.tahun})</div>
-                  <div className="admin-stat-value">{money(financeReport.summary.total_pemasukan)}</div>
-                  <div className="admin-muted">
-                    Penjualan, booking fee, dan pemasukan lain.
-                  </div>
-                </div>
-                <div className="admin-stat-card">
-                  <div className="admin-stat-title">Total Pengeluaran</div>
-                  <div className="admin-stat-value">{money(financeReport.summary.total_pengeluaran)}</div>
-                  <div className="admin-muted">Biaya operasional dan transaksi keluar.</div>
-                </div>
-                <div className="admin-stat-card">
-                  <div className="admin-stat-title">Laba/Rugi Bersih</div>
-                  <div className="admin-stat-value">{money(financeReport.summary.total_laba_bersih)}</div>
-                  <div className="admin-muted">Total pemasukan - total pengeluaran.</div>
-                </div>
-                <div className="admin-stat-card">
-                  <div className="admin-stat-title">Penjualan dan Booking</div>
-                  <div className="admin-stat-value">{financeReport.summary.total_transaksi}</div>
-                  <div className="admin-muted">
-                    Sold: {money(financeReport.summary.total_penjualan)}. Booking: {money(financeReport.summary.total_booking_fee)}.
-                  </div>
-                </div>
-              </div>
-            )}
+            {/* Inquiries List */}
+            <div className="bg-white border border-slate-200/80 rounded-xl shadow-sm overflow-hidden">
+              <table className="w-full border-collapse">
+                <thead>
+                  <tr className="bg-slate-50 border-b border-slate-100 text-left text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                    <th className="px-6 py-4">Kode / Tanggal</th>
+                    <th className="px-6 py-4">Calon Pembeli</th>
+                    <th className="px-6 py-4">Unit Terpilih</th>
+                    <th className="px-6 py-4">Kontak & Jadwal</th>
+                    <th className="px-6 py-4">Booking Fee</th>
+                    <th className="px-6 py-4">Status</th>
+                    <th className="px-6 py-4 text-right">Aksi</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-slate-600 text-sm">
+                  {filteredBookings.map((b) => (
+                    <tr key={b.id} className="hover:bg-slate-50/40 transition-colors">
+                      <td className="px-6 py-4">
+                        <span className="font-mono font-semibold text-slate-900 block">{b.kode_inquiry}</span>
+                        <span className="text-[11px] text-slate-400 mt-1 block">{shortDate(b.dibuat_pada)}</span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="font-semibold text-slate-900 block">{b.nama_depan} {b.nama_belakang}</span>
+                        <span className="text-xs text-slate-400 mt-0.5 block">{b.email}</span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="font-semibold text-slate-900 block">{b.nama_rumah}</span>
+                        <span className="text-xs text-slate-400 mt-0.5 block">{b.kota}</span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="text-xs block">Preferensi: <span className="font-semibold">{b.preferensi_kontak}</span></span>
+                        <span className="text-xs text-slate-400 block mt-0.5">Tel: {b.telepon}</span>
+                        {b.jadwal_kunjungan && (
+                          <span className="text-[11px] text-emerald-600 block mt-1">Survey: {formatDate(b.jadwal_kunjungan)}</span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 font-mono font-semibold text-slate-900">
+                        {money(b.booking_fee)}
+                      </td>
+                      <td className="px-6 py-4">
+                        <select
+                          value={b.status}
+                          onChange={(e) => updateBookingStatus(b.id, e.target.value)}
+                          className="px-2 py-1 text-xs border border-slate-200 rounded focus:outline-none focus:border-emerald-500 bg-white"
+                        >
+                          {Object.entries(INQUIRY_STATUS_CFG).map(([key, item]) => (
+                            <option key={key} value={key}>{item.label}</option>
+                          ))}
+                        </select>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        {b.status !== "closed" && (
+                          <button
+                            onClick={() => setDealModalBooking(b)}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded shadow-sm transition-colors"
+                          >
+                            <DollarSign size={12} /> Catat Deal Penjualan
+                          </button>
+                        )}
+                        {b.status === "closed" && (
+                          <span className="text-xs text-slate-400 font-medium">Deal Selesai</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                  {filteredBookings.length === 0 && (
+                    <tr>
+                      <td colSpan={7} className="text-center text-slate-400 py-12">Tidak ada data booking cocok.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
 
-            <section className="admin-card" style={{ marginBottom: "1rem" }}>
-              <div className="admin-section-head">
+        {/* ══ PROPERTIES VIEW ══ */}
+        {view === "properties" && (
+          <div className="p-8 space-y-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-2xl font-serif font-semibold text-slate-900 tracking-wide">Daftar Properti</h1>
+                <p className="text-sm text-slate-400 mt-0.5">Kelola data unit properti aktif dan status ketersediaannya</p>
+              </div>
+              <button 
+                onClick={() => { resetForm(); setView("create"); }}
+                className="flex items-center gap-2 px-4 py-2.5 bg-[#064E3B] hover:bg-[#053d2f] text-white text-sm font-semibold rounded-lg transition-colors"
+              >
+                <Plus size={15} /> Tambah Properti
+              </button>
+            </div>
+
+            <div className="grid gap-3">
+              {properties.map((p) => (
+                <div 
+                  key={p.kode_rumah}
+                  className="bg-white border border-slate-200/80 rounded-xl p-5 flex items-center justify-between hover:border-emerald-200 transition-colors shadow-sm group"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-xl bg-slate-100 group-hover:bg-emerald-50 flex items-center justify-center text-slate-400 group-hover:text-emerald-600 transition-colors">
+                      <Building2 size={18} />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <p className="font-semibold text-slate-900">{p.nama_rumah}</p>
+                        <span className="font-mono text-[10px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">{p.kode_rumah}</span>
+                      </div>
+                      <p className="text-xs text-slate-400 mt-0.5">{p.alamat}, {p.kota} · {p.tipe}</p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center gap-6">
+                    <div className="text-right">
+                      <p className="font-mono font-semibold text-slate-900">{money(p.harga)}</p>
+                      <p className="text-[10px] text-slate-400 mt-0.5">{p.harga.toLocaleString("id-ID")}</p>
+                    </div>
+                    <span className={`px-2.5 py-1 rounded-lg text-xs font-semibold ${
+                      p.status === "sold" ? "bg-slate-100 text-slate-500" 
+                        : p.status === "reserved" ? "bg-amber-50 text-amber-700" 
+                          : "bg-emerald-50 text-emerald-700"
+                    }`}>
+                      {p.status === "sold" ? "Terjual" : p.status === "reserved" ? "Booked" : "Tersedia"}
+                    </span>
+                    <div className="flex gap-2">
+                      <button 
+                        onClick={() => fillFromProperty(p)}
+                        className="p-1.5 text-slate-400 hover:text-emerald-600 rounded transition-colors"
+                        title="Edit properti"
+                      >
+                        <Edit size={15} />
+                      </button>
+                      <button 
+                        onClick={() => deleteProperty(p.kode_rumah)}
+                        className="p-1.5 text-slate-400 hover:text-red-500 rounded transition-colors"
+                        title="Hapus properti"
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {properties.length === 0 && (
+                <div className="bg-white border border-slate-200/80 rounded-xl p-8 text-center text-slate-400 text-sm">
+                  Belum ada properti unit. Klik Tambah Properti untuk memulai.
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ══ CREATE/EDIT PROPERTY VIEW ══ */}
+        {view === "create" && (
+          <div className="p-8 max-w-3xl space-y-6">
+            <div>
+              <h1 className="text-2xl font-serif font-semibold text-slate-900 tracking-wide">{isEditing ? "Edit Properti Unit" : "Tambah Properti Baru"}</h1>
+              <p className="text-sm text-slate-400 mt-0.5">Isi semua detail, spesifikasi fisik, dan unggah gambar unit</p>
+            </div>
+
+            <form onSubmit={submitProperty} className="bg-white border border-slate-200/80 rounded-xl p-6 shadow-sm space-y-5">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <div>
-                  <h2 className="admin-section-title">Tambah Transaksi Manual</h2>
-                  <p className="admin-muted">
-                    Pakai ini untuk pengeluaran nyata seperti iklan, komisi, transport, dokumen, maintenance, atau pemasukan lain di luar penjualan rumah.
-                  </p>
-                </div>
-              </div>
-
-              <form className="admin-form-grid" onSubmit={saveFinanceTransaction}>
-                <div className="admin-field">
-                  <label htmlFor="financeDate">Tanggal</label>
-                  <input
-                    id="financeDate"
-                    className="admin-input"
-                    type="date"
-                    value={financeForm.tanggal}
-                    onChange={(event) => setFinanceForm((prev) => ({ ...prev, tanggal: event.target.value }))}
+                  <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1.5">Kode Rumah</label>
+                  <input 
+                    type="text" 
+                    value={isEditing ? editCode : form.kode_rumah}
+                    onChange={(e) => setForm((p) => ({ ...p, kode_rumah: e.target.value }))}
+                    disabled={isEditing}
+                    placeholder="Contoh: RMH-SENTUL-01"
+                    required
+                    className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-emerald-500 bg-white disabled:bg-slate-50 disabled:text-slate-400"
                   />
                 </div>
-                <div className="admin-field">
-                  <label htmlFor="financeType">Tipe</label>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1.5">Nama Rumah</label>
+                  <input 
+                    type="text" 
+                    value={form.nama_rumah}
+                    onChange={(e) => setForm((p) => ({ ...p, nama_rumah: e.target.value }))}
+                    placeholder="Contoh: Villa Emerald Sentul"
+                    required
+                    className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-emerald-500 bg-white"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1.5">Alamat</label>
+                  <input 
+                    type="text" 
+                    value={form.alamat}
+                    onChange={(e) => setForm((p) => ({ ...p, alamat: e.target.value }))}
+                    placeholder="Jl. Raya Sentul No. 12"
+                    required
+                    className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-emerald-500 bg-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1.5">Kota</label>
+                  <input 
+                    type="text" 
+                    value={form.kota}
+                    onChange={(e) => setForm((p) => ({ ...p, kota: e.target.value }))}
+                    placeholder="Bogor"
+                    required
+                    className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-emerald-500 bg-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1.5">Tipe Properti</label>
                   <select
-                    id="financeType"
-                    className="admin-select"
-                    value={financeForm.tipe}
-                    onChange={(event) =>
-                      setFinanceForm((prev) => ({
-                        ...prev,
-                        tipe: event.target.value as FinanceFormState["tipe"],
-                      }))
-                    }
+                    value={form.tipe}
+                    onChange={(e) => setForm((p) => ({ ...p, tipe: e.target.value }))}
+                    className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-emerald-500 bg-white"
                   >
-                    <option value="pengeluaran">Pengeluaran</option>
-                    <option value="pemasukan">Pemasukan lain</option>
+                    <option value="Rumah">Rumah</option>
+                    <option value="Villa">Villa</option>
+                    <option value="Townhouse">Townhouse</option>
+                    <option value="Kavling">Kavling</option>
+                    <option value="Ruko">Ruko</option>
                   </select>
                 </div>
-                <div className="admin-field">
-                  <label htmlFor="financeCategory">Kategori</label>
-                  <input
-                    id="financeCategory"
-                    className="admin-input"
-                    value={financeForm.kategori}
-                    onChange={(event) => setFinanceForm((prev) => ({ ...prev, kategori: event.target.value }))}
-                    placeholder="Iklan, komisi, transport, dokumen..."
-                  />
-                </div>
-                <div className="admin-field">
-                  <label htmlFor="financeAmount">Jumlah</label>
-                  <input
-                    id="financeAmount"
-                    className="admin-input"
-                    type="number"
-                    min={0}
-                    value={financeForm.jumlah}
-                    onChange={(event) => setFinanceForm((prev) => ({ ...prev, jumlah: event.target.value }))}
-                    placeholder="0"
-                  />
-                </div>
-                <div className="admin-field admin-full">
-                  <label htmlFor="financeDescription">Deskripsi</label>
-                  <textarea
-                    id="financeDescription"
-                    className="admin-textarea"
-                    value={financeForm.deskripsi}
-                    onChange={(event) => setFinanceForm((prev) => ({ ...prev, deskripsi: event.target.value }))}
-                    placeholder="Contoh: biaya iklan Instagram bulan Juni untuk campaign rumah tipe A."
-                  />
-                </div>
-                <div className="admin-actions admin-full">
-                  <button className="admin-btn" type="submit" disabled={busyAction === "finance-add"}>
-                    {busyAction === "finance-add" ? "Menyimpan..." : "Simpan Transaksi"}
-                  </button>
-                </div>
-              </form>
-            </section>
+              </div>
 
-            <section className="admin-card" style={{ marginBottom: "1rem" }}>
-              <div className="admin-section-head">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                 <div>
-                  <h2 className="admin-section-title">Ringkasan Bulanan</h2>
-                  <p className="admin-muted">Cocok untuk tabel laporan laba rugi per bulan.</p>
+                  <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1.5">Harga Rumah (Rp)</label>
+                  <input 
+                    type="number" 
+                    value={form.harga}
+                    onChange={(e) => setForm((p) => ({ ...p, harga: e.target.value }))}
+                    placeholder="1200000000"
+                    required
+                    className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-emerald-500 bg-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1.5">Kamar Tidur</label>
+                  <input 
+                    type="number" 
+                    value={form.kamar_tidur}
+                    onChange={(e) => setForm((p) => ({ ...p, kamar_tidur: e.target.value }))}
+                    placeholder="3"
+                    required
+                    className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-emerald-500 bg-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1.5">Kamar Mandi</label>
+                  <input 
+                    type="number" 
+                    value={form.kamar_mandi}
+                    onChange={(e) => setForm((p) => ({ ...p, kamar_mandi: e.target.value }))}
+                    placeholder="2"
+                    required
+                    className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-emerald-500 bg-white"
+                  />
                 </div>
               </div>
-              {loadingFinance && <p className="admin-muted">Memuat laporan keuangan...</p>}
-              {!loadingFinance && financeReport && (
-                <div className="admin-table-wrap">
-                  <table className="admin-table">
+
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1.5">Luas Tanah (m²)</label>
+                  <input 
+                    type="number" 
+                    value={form.luas_tanah}
+                    onChange={(e) => setForm((p) => ({ ...p, luas_tanah: e.target.value }))}
+                    placeholder="120"
+                    required
+                    className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-emerald-500 bg-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1.5">Luas Bangunan (m²)</label>
+                  <input 
+                    type="number" 
+                    value={form.luas_bangunan}
+                    onChange={(e) => setForm((p) => ({ ...p, luas_bangunan: e.target.value }))}
+                    placeholder="90"
+                    required
+                    className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-emerald-500 bg-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1.5">Kapasitas Garasi (mobil)</label>
+                  <input 
+                    type="number" 
+                    value={form.garasi}
+                    onChange={(e) => setForm((p) => ({ ...p, garasi: e.target.value }))}
+                    placeholder="1"
+                    required
+                    className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-emerald-500 bg-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1.5">Rating (0 - 5)</label>
+                  <input 
+                    type="number" 
+                    step="0.1" 
+                    min="0" 
+                    max="5"
+                    value={form.rating}
+                    onChange={(e) => setForm((p) => ({ ...p, rating: e.target.value }))}
+                    placeholder="4.8"
+                    required
+                    className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-emerald-500 bg-white"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1.5">Fitur Properti (pisahkan dengan koma)</label>
+                <input 
+                  type="text" 
+                  value={form.fitur}
+                  onChange={(e) => setForm((p) => ({ ...p, fitur: e.target.value }))}
+                  placeholder="Smart Lock, CCTV 24 Jam, Kolam Renang, Balkon Luas"
+                  className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-emerald-500 bg-white"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1.5">Deskripsi Singkat</label>
+                <textarea 
+                  rows={4}
+                  value={form.deskripsi}
+                  onChange={(e) => setForm((p) => ({ ...p, deskripsi: e.target.value }))}
+                  placeholder="Ceritakan detail filosofi ruang dan spesifikasi arsitektur unit..."
+                  className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-emerald-500 bg-white resize-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1.5">Foto Properti</label>
+                <div className="border-2 border-dashed border-slate-200 rounded-xl p-6 text-center hover:border-emerald-500 transition-colors relative cursor-pointer font-sans">
+                  <input 
+                    type="file" 
+                    multiple 
+                    onChange={(e) => setUploadFiles(e.target.files)}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                  />
+                  <Upload className="mx-auto text-slate-400 mb-2" size={24} />
+                  <p className="text-sm font-semibold text-slate-700">Pilih berkas gambar untuk diunggah</p>
+                  <p className="text-xs text-slate-400 mt-1">Format PNG, JPG, atau JPEG (Bisa pilih beberapa gambar)</p>
+                  {uploadFiles && uploadFiles.length > 0 && (
+                    <p className="text-xs text-emerald-600 mt-3 font-semibold">{uploadFiles.length} gambar dipilih</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex gap-4 pt-4 border-t border-slate-100">
+                <button 
+                  type="button" 
+                  onClick={() => { resetForm(); setView("properties"); }}
+                  className="flex-1 py-2.5 text-sm font-medium border border-slate-200 hover:bg-slate-50 text-slate-600 rounded-lg transition-colors"
+                >
+                  Batal
+                </button>
+                <button 
+                  type="submit" 
+                  disabled={busyAction === "submitProperty"}
+                  className="flex-1 py-2.5 text-sm font-semibold bg-[#064E3B] hover:bg-[#053d2f] text-white rounded-lg transition-colors"
+                >
+                  {busyAction === "submitProperty" ? "Menyimpan..." : "Simpan Properti"}
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        {/* ══ FINANCE REPORT VIEW ══ */}
+        {view === "finance" && (
+          <div className="p-8 space-y-8">
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-2xl font-serif font-semibold text-slate-900 tracking-wide">Laporan Keuangan</h1>
+                <p className="text-sm text-slate-400 mt-0.5">Analisis pendapatan, pengeluaran operasional, dan laba bersih</p>
+              </div>
+            </div>
+
+            {/* Range Filters */}
+            <div className="flex flex-wrap gap-4 bg-white border border-slate-200/80 rounded-xl p-4 shadow-sm items-end">
+              <div>
+                <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Tahun</label>
+                <select 
+                  value={financeYear} 
+                  onChange={(e) => setFinanceYear(Number(e.target.value))}
+                  className="px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-emerald-500 bg-white"
+                >
+                  <option value={2026}>2026</option>
+                  <option value={2025}>2025</option>
+                  <option value={2024}>2024</option>
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Dari Bulan</label>
+                <select 
+                  value={fromMonth} 
+                  onChange={(e) => setFromMonth(Number(e.target.value))}
+                  className="px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-emerald-500 bg-white"
+                >
+                  {MONTH_NAMES.map((name, i) => (
+                    <option key={i} value={i + 1}>{name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Sampai Bulan</label>
+                <select 
+                  value={toMonth} 
+                  onChange={(e) => setToMonth(Number(e.target.value))}
+                  className="px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-emerald-500 bg-white"
+                >
+                  {MONTH_NAMES.map((name, i) => (
+                    <option key={i} value={i + 1} disabled={i + 1 < fromMonth}>{name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex-1 text-right">
+                <span className="text-xs text-slate-400 italic">Menampilkan laporan: {MONTH_NAMES[fromMonth - 1]} - {MONTH_NAMES[toMonth - 1]} {financeYear}</span>
+              </div>
+            </div>
+
+            {/* Range summary statistics */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+              <div className="bg-white border border-slate-200/80 rounded-xl p-5 shadow-sm">
+                <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400">Total Pemasukan Periode Ini</p>
+                <p className="mt-1.5 text-2xl font-semibold leading-none font-mono text-emerald-600">{money(rangeSummary.total_pemasukan)}</p>
+              </div>
+              <div className="bg-white border border-slate-200/80 rounded-xl p-5 shadow-sm">
+                <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400">Total Pengeluaran Periode Ini</p>
+                <p className="mt-1.5 text-2xl font-semibold leading-none font-mono text-red-500">{money(rangeSummary.total_pengeluaran)}</p>
+              </div>
+              <div className={`rounded-xl p-5 border shadow-sm ${rangeSummary.laba_bersih >= 0 ? "bg-[#064E3B] border-transparent text-white" : "bg-red-950 border-transparent text-white"}`}>
+                <p className="text-[11px] font-bold uppercase tracking-widest text-emerald-300">Laba Bersih Periode Ini</p>
+                <p className="mt-1.5 text-2xl font-semibold leading-none font-mono">{money(rangeSummary.laba_bersih)}</p>
+              </div>
+            </div>
+
+            {/* Layout for form and grid breakdown */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              
+              {/* Add Transaction Form */}
+              <div className="bg-white border border-slate-200/80 rounded-xl p-5 shadow-sm self-start space-y-4">
+                <h3 className="text-sm font-semibold text-slate-900 border-b border-slate-100 pb-3">Input Transaksi Manual</h3>
+                
+                <form onSubmit={saveFinanceTransaction} className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">Tanggal</label>
+                    <input 
+                      type="date" 
+                      value={financeForm.tanggal}
+                      onChange={(e) => setFinanceForm((p) => ({ ...p, tanggal: e.target.value }))}
+                      required
+                      className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-emerald-500 bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">Tipe Transaksi</label>
+                    <select 
+                      value={financeForm.tipe} 
+                      onChange={(e) => setFinanceForm((p) => ({ ...p, tipe: e.target.value as "pemasukan" | "pengeluaran" }))}
+                      className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-emerald-500 bg-white"
+                    >
+                      <option value="pemasukan">Pemasukan</option>
+                      <option value="pengeluaran">Pengeluaran</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">Kategori</label>
+                    <select 
+                      value={financeForm.kategori} 
+                      onChange={(e) => setFinanceForm((p) => ({ ...p, kategori: e.target.value }))}
+                      required
+                      className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-emerald-500 bg-white"
+                    >
+                      <option value="">Pilih Kategori...</option>
+                      {financeForm.tipe === "pemasukan"
+                        ? INCOME_CATS.map((c) => <option key={c} value={c}>{c}</option>)
+                        : EXPENSE_CATS.map((c) => <option key={c} value={c}>{c}</option>)
+                      }
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">Jumlah (Rp)</label>
+                    <input 
+                      type="number" 
+                      value={financeForm.jumlah}
+                      onChange={(e) => setFinanceForm((p) => ({ ...p, jumlah: e.target.value }))}
+                      placeholder="Jumlah nominal"
+                      required
+                      className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-emerald-500 bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">Keterangan / Deskripsi</label>
+                    <textarea 
+                      rows={3}
+                      value={financeForm.deskripsi}
+                      onChange={(e) => setFinanceForm((p) => ({ ...p, deskripsi: e.target.value }))}
+                      placeholder="Detail pembayaran..."
+                      className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-emerald-500 bg-white resize-none"
+                    />
+                  </div>
+                  
+                  <button 
+                    type="submit"
+                    disabled={busyAction === "finance-add"}
+                    className="w-full py-2.5 bg-[#064E3B] hover:bg-[#053d2f] text-white text-sm font-semibold rounded-lg transition-colors uppercase tracking-wider"
+                  >
+                    {busyAction === "finance-add" ? "Menyimpan..." : "Simpan Transaksi"}
+                  </button>
+                </form>
+              </div>
+
+              {/* Monthly breakdown table */}
+              <div className="lg:col-span-2 bg-white border border-slate-200/80 rounded-xl shadow-sm overflow-hidden flex flex-col">
+                <div className="px-5 py-4 border-b border-slate-100">
+                  <h3 className="text-sm font-semibold text-slate-900">Rincian Per Bulan</h3>
+                </div>
+                <div className="flex-1 overflow-x-auto">
+                  <table className="w-full border-collapse text-left text-sm">
                     <thead>
-                      <tr>
-                        <th>Bulan</th>
-                        <th>Pemasukan Otomatis</th>
-                        <th>Pemasukan Lain</th>
-                        <th>Total Pemasukan</th>
-                        <th>Pengeluaran</th>
-                        <th>Laba/Rugi</th>
+                      <tr className="bg-slate-50 border-b border-slate-100 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                        <th className="px-5 py-3.5">Bulan</th>
+                        <th className="px-5 py-3.5">Penjualan Unit</th>
+                        <th className="px-5 py-3.5">Booking Fee</th>
+                        <th className="px-5 py-3.5">Pemasukan Manual</th>
+                        <th className="px-5 py-3.5">Pengeluaran</th>
+                        <th className="px-5 py-3.5 text-right">Laba Bersih</th>
                       </tr>
                     </thead>
-                    <tbody>
-                      {financeReport.bulanan.map((row) => (
-                        <tr key={row.bulan}>
-                          <td>
-                            <strong>{row.nama_bulan}</strong>
+                    <tbody className="divide-y divide-slate-100 text-slate-600">
+                      {filteredMonthlyRows.map((row) => (
+                        <tr key={row.bulan} className="hover:bg-slate-50/50 transition-colors">
+                          <td className="px-5 py-3.5 font-semibold text-slate-800">{row.nama_bulan}</td>
+                          <td className="px-5 py-3.5 font-mono">{money(row.total_penjualan)}</td>
+                          <td className="px-5 py-3.5 font-mono">{money(row.total_booking_fee)}</td>
+                          <td className="px-5 py-3.5 font-mono">{money(row.total_pemasukan_manual)}</td>
+                          <td className="px-5 py-3.5 font-mono text-red-500">{money(row.total_pengeluaran)}</td>
+                          <td className={`px-5 py-3.5 text-right font-mono font-semibold ${row.laba_bersih >= 0 ? "text-emerald-600" : "text-red-500"}`}>
+                            {money(row.laba_bersih)}
                           </td>
-                          <td>
-                            {money(row.total_penjualan + row.total_booking_fee)}
-                            <div className="admin-muted">
-                              Sold {money(row.total_penjualan)} + booking {money(row.total_booking_fee)}
-                            </div>
-                          </td>
-                          <td>{money(row.total_pemasukan_manual)}</td>
-                          <td>{money(row.total_pemasukan)}</td>
-                          <td>{money(row.total_pengeluaran)}</td>
-                          <td>{money(row.laba_bersih)}</td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
-              )}
-            </section>
-
-            {financeReport && (
-              <div className="admin-grid">
-                <section className="admin-card">
-                  <div className="admin-section-head">
-                    <div>
-                      <h2 className="admin-section-title">Pemasukan Otomatis</h2>
-                      <p className="admin-muted">Diambil dari inquiry berstatus booked atau sold.</p>
-                    </div>
-                  </div>
-                  {(financeReport.pemasukan_otomatis || []).length === 0 && (
-                    <p className="admin-muted">Belum ada pemasukan otomatis pada tahun ini.</p>
-                  )}
-                  {(financeReport.pemasukan_otomatis || []).length > 0 && (
-                    <div className="admin-table-wrap">
-                      <table className="admin-table">
-                        <thead>
-                          <tr>
-                            <th>Tanggal</th>
-                            <th>Sumber</th>
-                            <th>Inquiry</th>
-                            <th>Jumlah</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {financeReport.pemasukan_otomatis.map((item) => (
-                            <tr key={`${item.status}-${item.booking_id}`}>
-                              <td>{formatDate(item.tanggal)}</td>
-                              <td>
-                                <strong>{item.kategori}</strong>
-                                <div className="admin-muted">{item.nama_rumah}</div>
-                              </td>
-                              <td>{item.kode_inquiry}</td>
-                              <td>{money(item.jumlah)}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </section>
-
-                <section className="admin-card">
-                  <div className="admin-section-head">
-                    <div>
-                      <h2 className="admin-section-title">Transaksi Manual</h2>
-                      <p className="admin-muted">Dipakai untuk pengeluaran dan pemasukan lain yang tidak berasal dari inquiry.</p>
-                    </div>
-                  </div>
-                  {(financeReport.transaksi || []).length === 0 && (
-                    <p className="admin-muted">Belum ada transaksi manual pada tahun ini.</p>
-                  )}
-                  {(financeReport.transaksi || []).length > 0 && (
-                    <div className="admin-table-wrap">
-                      <table className="admin-table">
-                        <thead>
-                          <tr>
-                            <th>Tanggal</th>
-                            <th>Tipe</th>
-                            <th>Kategori</th>
-                            <th>Deskripsi</th>
-                            <th>Jumlah</th>
-                            <th>Aksi</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {financeReport.transaksi.map((item) => (
-                            <tr key={item.id}>
-                              <td>{formatDate(item.tanggal)}</td>
-                              <td>{transactionTypeLabel(item.tipe)}</td>
-                              <td>
-                                <strong>{item.kategori}</strong>
-                                {item.sumber !== "manual" && <div className="admin-muted">Data lama</div>}
-                              </td>
-                              <td>{item.deskripsi || "-"}</td>
-                              <td>{money(item.jumlah)}</td>
-                              <td>
-                                {item.sumber === "manual" ? (
-                                  <button
-                                    className="admin-icon-btn danger"
-                                    type="button"
-                                    disabled={busyAction === `finance-delete-${item.id}`}
-                                    onClick={() => deleteFinanceTransaction(item.id)}
-                                  >
-                                    Hapus
-                                  </button>
-                                ) : (
-                                  <span className="admin-muted">Migrasi</span>
-                                )}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </section>
               </div>
-            )}
 
-            {!loadingFinance && !financeReport && (
-              <section className="admin-card">
-                <p className="admin-muted">Laporan keuangan belum bisa dimuat.</p>
-              </section>
-            )}
-          </>
+            </div>
+
+            {/* List of Manual Transactions */}
+            <div className="bg-white border border-slate-200/80 rounded-xl shadow-sm overflow-hidden">
+              <div className="px-5 py-4 border-b border-slate-100">
+                <h3 className="text-sm font-semibold text-slate-900">Arsip Transaksi Manual</h3>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse text-left text-sm">
+                  <thead>
+                    <tr className="bg-slate-50 border-b border-slate-100 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                      <th className="px-5 py-3.5">Tanggal</th>
+                      <th className="px-5 py-3.5">Tipe</th>
+                      <th className="px-5 py-3.5">Kategori</th>
+                      <th className="px-5 py-3.5">Deskripsi</th>
+                      <th className="px-5 py-3.5">Jumlah</th>
+                      <th className="px-5 py-3.5 text-right">Aksi</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 text-slate-600">
+                    {filteredTransactions.map((t) => (
+                      <tr key={t.id} className="hover:bg-slate-50/50 transition-colors">
+                        <td className="px-5 py-3.5 font-mono text-slate-400">{shortDate(t.tanggal)}</td>
+                        <td className="px-5 py-3.5">
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold ${t.tipe === "pemasukan" ? "text-emerald-700 bg-emerald-50" : "text-red-600 bg-red-50"}`}>
+                            {t.tipe === "pemasukan" ? "Masuk" : "Keluar"}
+                          </span>
+                        </td>
+                        <td className="px-5 py-3.5 font-semibold text-slate-800">{t.kategori}</td>
+                        <td className="px-5 py-3.5 text-xs text-slate-400 max-w-[200px] truncate">
+                          {t.deskripsi || "—"}
+                          {t.source_ref && (
+                            <span className="block font-mono text-emerald-600 font-semibold mt-0.5">#{t.source_ref.split("_")[0]}</span>
+                          )}
+                        </td>
+                        <td className={`px-5 py-3.5 font-mono font-semibold ${t.tipe === "pemasukan" ? "text-emerald-600" : "text-red-500"}`}>
+                          {t.tipe === "pemasukan" ? "+" : "-"}{money(t.jumlah)}
+                        </td>
+                        <td className="px-5 py-3.5 text-right">
+                          {t.sumber === "manual" && (
+                            <button
+                              onClick={() => deleteFinanceTransaction(t.id)}
+                              className="p-1 text-slate-300 hover:text-red-500 rounded transition-colors"
+                              title="Hapus Transaksi"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                    {filteredTransactions.length === 0 && (
+                      <tr>
+                        <td colSpan={6} className="text-center text-slate-400 py-12">Belum ada transaksi manual tercatat di periode ini.</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+          </div>
         )}
 
-        {view === "create" && (
-          <>
-            <div className="admin-header">
-              <div>
-                <h1 className="admin-title">{isEditing ? `Edit Properti ${editCode}` : "Tambah Properti"}</h1>
-                <p className="admin-subtitle">Lengkapi detail properti dan unggah beberapa gambar.</p>
-              </div>
-              <button className="admin-btn secondary" type="button" onClick={() => { resetForm(); setView("dashboard"); }}>
-                Kembali
+      </main>
+
+      {/* ══ MANUAL DEAL RECORDING MODAL ══ */}
+      {dealModalBooking && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setDealModalBooking(null)} />
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+              <h2 className="text-sm font-semibold text-slate-900 font-serif">Catat Deal Penjualan</h2>
+              <button onClick={() => setDealModalBooking(null)} className="p-1 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-700">
+                <X size={16} />
               </button>
             </div>
-            <section className="admin-card">
-              <form onSubmit={submitProperty} className="admin-form-grid">
-                <div className="admin-field">
-                  <label>Kode Rumah</label>
-                  <input className="admin-input" value={form.kode_rumah} disabled={isEditing} onChange={(event) => setForm((prev) => ({ ...prev, kode_rumah: event.target.value }))} required />
+            
+            <div className="p-6 space-y-4">
+              <div className="bg-slate-50 border border-slate-100 rounded-xl p-4 space-y-2">
+                <p className="text-sm font-semibold text-slate-900">{dealModalBooking.nama_depan} {dealModalBooking.nama_belakang}</p>
+                <p className="text-[11px] font-mono text-slate-400 font-semibold">Inquiry: {dealModalBooking.kode_inquiry}</p>
+                <p className="text-[11px] text-slate-500 font-semibold">{dealModalBooking.nama_rumah} · {dealModalBooking.kota}</p>
+              </div>
+
+              <form onSubmit={saveDealTransaction} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">Tanggal Deal</label>
+                  <input 
+                    type="date" 
+                    value={dealForm.tanggal}
+                    onChange={(e) => setDealForm((p) => ({ ...p, tanggal: e.target.value }))}
+                    required
+                    className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-emerald-500 bg-white"
+                  />
                 </div>
-                <div className="admin-field">
-                  <label>Nama Rumah</label>
-                  <input className="admin-input" value={form.nama_rumah} onChange={(event) => setForm((prev) => ({ ...prev, nama_rumah: event.target.value }))} required />
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">Jumlah Deal (Rp)</label>
+                  <input 
+                    type="number" 
+                    value={dealForm.jumlah}
+                    onChange={(e) => setDealForm((p) => ({ ...p, jumlah: e.target.value }))}
+                    placeholder="Contoh: 1200000000"
+                    required
+                    className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-emerald-500 bg-white"
+                  />
                 </div>
-                <div className="admin-field">
-                  <label>Alamat</label>
-                  <input className="admin-input" value={form.alamat} onChange={(event) => setForm((prev) => ({ ...prev, alamat: event.target.value }))} required />
-                </div>
-                <div className="admin-field">
-                  <label>Kota</label>
-                  <input className="admin-input" value={form.kota} onChange={(event) => setForm((prev) => ({ ...prev, kota: event.target.value }))} required />
-                </div>
-                <div className="admin-field">
-                  <label>Tipe</label>
-                  <select className="admin-select" value={form.tipe} onChange={(event) => setForm((prev) => ({ ...prev, tipe: event.target.value }))}>
-                    <option value="house">House</option>
-                    <option value="villa">Villa</option>
-                    <option value="cabin">Cabin</option>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">Kategori</label>
+                  <select 
+                    value={dealForm.kategori}
+                    onChange={(e) => setDealForm((p) => ({ ...p, kategori: e.target.value }))}
+                    required
+                    className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-emerald-500 bg-white"
+                  >
+                    {INCOME_CATS.map((c) => <option key={c} value={c}>{c}</option>)}
                   </select>
                 </div>
-                <div className="admin-field">
-                  <label>Harga</label>
-                  <input className="admin-input" value={form.harga} onChange={(event) => setForm((prev) => ({ ...prev, harga: event.target.value }))} required />
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">Catatan Keterangan</label>
+                  <textarea 
+                    rows={3}
+                    value={dealForm.deskripsi}
+                    onChange={(e) => setDealForm((p) => ({ ...p, deskripsi: e.target.value }))}
+                    placeholder="Detail cara pembayaran, KPR, cash bertahap, dll..."
+                    className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-emerald-500 bg-white resize-none"
+                  />
                 </div>
-                <div className="admin-field">
-                  <label>Rating</label>
-                  <input className="admin-input" value={form.rating} onChange={(event) => setForm((prev) => ({ ...prev, rating: event.target.value }))} required />
-                </div>
-                <div className="admin-field">
-                  <label>Kamar Tidur</label>
-                  <input className="admin-input" value={form.kamar_tidur} onChange={(event) => setForm((prev) => ({ ...prev, kamar_tidur: event.target.value }))} required />
-                </div>
-                <div className="admin-field">
-                  <label>Kamar Mandi</label>
-                  <input className="admin-input" value={form.kamar_mandi} onChange={(event) => setForm((prev) => ({ ...prev, kamar_mandi: event.target.value }))} required />
-                </div>
-                <div className="admin-field">
-                  <label>Luas Tanah</label>
-                  <input className="admin-input" value={form.luas_tanah} onChange={(event) => setForm((prev) => ({ ...prev, luas_tanah: event.target.value }))} required />
-                </div>
-                <div className="admin-field">
-                  <label>Luas Bangunan</label>
-                  <input className="admin-input" value={form.luas_bangunan} onChange={(event) => setForm((prev) => ({ ...prev, luas_bangunan: event.target.value }))} required />
-                </div>
-                <div className="admin-field">
-                  <label>Garasi</label>
-                  <input className="admin-input" value={form.garasi} onChange={(event) => setForm((prev) => ({ ...prev, garasi: event.target.value }))} required />
-                </div>
-                <div className="admin-field admin-full">
-                  <label>Fitur</label>
-                  <input className="admin-input" value={form.fitur} onChange={(event) => setForm((prev) => ({ ...prev, fitur: event.target.value }))} placeholder="parking,pool,garden,gym" />
-                </div>
-                <div className="admin-field admin-full">
-                  <label>Deskripsi</label>
-                  <textarea className="admin-textarea" value={form.deskripsi} onChange={(event) => setForm((prev) => ({ ...prev, deskripsi: event.target.value }))} />
-                </div>
-                <div className="admin-field admin-full">
-                  <label>Upload Gambar</label>
-                  <input className="admin-input" type="file" multiple onChange={(event) => setUploadFiles(event.target.files)} />
-                </div>
-                <div className="admin-full admin-actions">
-                  <button className="admin-btn" type="submit" disabled={busyAction === "submitProperty"}>
-                    {busyAction === "submitProperty" ? "Menyimpan..." : isEditing ? "Update Properti" : "Tambah Properti"}
+                
+                <div className="flex gap-3 pt-2">
+                  <button 
+                    type="button" 
+                    onClick={() => setDealModalBooking(null)}
+                    className="flex-1 py-2 text-sm font-medium border border-slate-200 hover:bg-slate-50 text-slate-600 rounded-lg"
+                  >
+                    Batal
                   </button>
-                  {isEditing && (
-                    <button className="admin-btn secondary" type="button" onClick={resetForm}>
-                      Batal Edit
-                    </button>
-                  )}
+                  <button 
+                    type="submit"
+                    disabled={busyAction === "deal-add"}
+                    className="flex-1 py-2 text-sm font-semibold bg-[#064E3B] hover:bg-[#053d2f] text-white rounded-lg"
+                  >
+                    {busyAction === "deal-add" ? "Menyimpan..." : "Simpan Deal"}
+                  </button>
                 </div>
               </form>
-            </section>
-          </>
-        )}
-      </main>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
+}
+
+function formatDate(value?: string | null) {
+  if (!value) return "-";
+  try {
+    return new Date(value).toLocaleString("id-ID", {
+      dateStyle: "medium",
+      timeStyle: "short",
+    });
+  } catch {
+    return value;
+  }
 }
