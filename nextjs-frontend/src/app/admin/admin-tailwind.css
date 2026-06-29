@@ -14,4 +14,70 @@
   .font-mono {
     font-family: 'DM Mono', monospace !important;
   }
+
+  /* PlanB Color Theme Overrides for Admin Panel */
+  .bg-\[\#F9FBFC\] {
+    background-color: #f4efe4 !important;
+  }
+  
+  .bg-slate-900 {
+    background-color: #111111 !important;
+  }
+  
+  .bg-slate-800 {
+    background-color: #264f36 !important;
+  }
+  
+  .hover\:bg-slate-800\/50:hover {
+    background-color: rgba(38, 79, 54, 0.4) !important;
+  }
+  
+  .border-slate-800 {
+    border-color: rgba(255, 255, 255, 0.1) !important;
+  }
+  
+  .border-slate-200\/80 {
+    border-color: rgba(31, 42, 34, 0.12) !important;
+  }
+  
+  /* Text overrides */
+  .text-slate-800, 
+  .text-slate-900 {
+    color: #1f2a22 !important;
+  }
+  
+  .text-slate-300 {
+    color: #f7f0e4 !important;
+  }
+  
+  .text-slate-400 {
+    color: rgba(31, 42, 34, 0.5) !important;
+  }
+
+  /* Olive Green Brand Overrides for Cards/Buttons */
+  .bg-\[\#064E3B\] {
+    background-color: #264f36 !important;
+  }
+  
+  .hover\:bg-\[\#053d2f\]:hover {
+    background-color: #1f3f2b !important;
+  }
+  
+  /* Table row hovers & backgrounds */
+  .bg-slate-50 {
+    background-color: #f7f0e4 !important;
+  }
+  
+  .hover\:bg-slate-50\/50:hover {
+    background-color: rgba(247, 240, 228, 0.5) !important;
+  }
+  
+  .hover\:bg-slate-50\/40:hover {
+    background-color: rgba(247, 240, 228, 0.4) !important;
+  }
+  
+  /* Forms and Inputs custom borders */
+  .border-slate-200 {
+    border-color: rgba(31, 42, 34, 0.18) !important;
+  }
 }
