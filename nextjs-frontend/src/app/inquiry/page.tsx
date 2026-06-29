@@ -20,7 +20,7 @@ export default function InquiryPage() {
   const [property, setProperty] = useState<PropertyApi | null>(null);
   const [loading, setLoading] = useState(true);
   const [payMethod, setPayMethod] = useState("qris");
-  const [contactPreference, setContactPreference] = useState("whatsapp");
+  const [contactPreference, setContactPreference] = useState("WhatsApp");
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState<BookingApi | null>(null);
   const [copiedCode, setCopiedCode] = useState(false);
