@@ -807,16 +807,24 @@ export default function AdminPage() {
                         </select>
                       </td>
                       <td className="px-6 py-4 text-right">
-                        {b.status !== "closed" && (
+                        {b.status === "closed" && (
+                          <span className="text-xs text-slate-400 font-medium">Deal Selesai</span>
+                        )}
+                        {b.status === "cancelled" && (
+                          <button
+                            disabled
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-200 text-slate-400 text-xs font-bold rounded cursor-not-allowed"
+                          >
+                            <DollarSign size={12} /> Catat Deal Penjualan
+                          </button>
+                        )}
+                        {b.status !== "closed" && b.status !== "cancelled" && (
                           <button
                             onClick={() => setDealModalBooking(b)}
                             className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded shadow-sm transition-colors"
                           >
                             <DollarSign size={12} /> Catat Deal Penjualan
                           </button>
-                        )}
-                        {b.status === "closed" && (
-                          <span className="text-xs text-slate-400 font-medium">Deal Selesai</span>
                         )}
                       </td>
                     </tr>
