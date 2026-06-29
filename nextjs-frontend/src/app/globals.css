@@ -47,7 +47,7 @@ a {
 
 /* PlanB Custom Typography Utilities */
 .font-serif {
-  font-family: 'Instrument Serif', Georgia, serif;
+  font-family: 'Georgia', 'Instrument Serif', serif;
 }
 
 .font-mono {

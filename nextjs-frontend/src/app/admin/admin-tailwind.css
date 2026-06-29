@@ -1,3 +1,17 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  body, html, .font-sans {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif !important;
+  }
+  
+  .font-serif {
+    font-family: 'Georgia', 'Instrument Serif', serif !important;
+  }
+  
+  .font-mono {
+    font-family: 'DM Mono', monospace !important;
+  }
+}

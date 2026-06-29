@@ -95,7 +95,7 @@ const EXPENSE_CATS = [
 const INQUIRY_STATUS_CFG: Record<string, { label: string; dot: string; badge: string }> = {
   new: { label: "Baru", dot: "bg-blue-500", badge: "bg-blue-50 text-blue-700" },
   contacted: { label: "Dihubungi", dot: "bg-violet-500", badge: "bg-violet-50 text-violet-700" },
-  booking_fee_pending: { label: "Menunggu BF", dot: "bg-amber-500", badge: "bg-amber-50 text-amber-700" },
+  booking_fee_pending: { label: "Menunggu Booking Fee", dot: "bg-amber-500", badge: "bg-amber-50 text-amber-700" },
   reserved: { label: "Booked", dot: "bg-teal-500", badge: "bg-teal-50 text-teal-700" },
   closed: { label: "Deal / Closed", dot: "bg-emerald-500", badge: "bg-emerald-50 text-emerald-700" },
   cancelled: { label: "Dibatalkan", dot: "bg-slate-400", badge: "bg-slate-100 text-slate-500" },
@@ -855,8 +855,16 @@ export default function AdminPage() {
                   className="bg-white border border-slate-200/80 rounded-xl p-5 flex items-center justify-between hover:border-emerald-200 transition-colors shadow-sm group"
                 >
                   <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-xl bg-slate-100 group-hover:bg-emerald-50 flex items-center justify-center text-slate-400 group-hover:text-emerald-600 transition-colors">
-                      <Building2 size={18} />
+                    <div className="w-16 h-12 rounded-lg bg-slate-100 border border-slate-200 overflow-hidden flex-shrink-0 flex items-center justify-center text-slate-400">
+                      {p.gambar && p.gambar.length > 0 ? (
+                        <img 
+                          src={normalizeImageUrl(p.gambar[0])} 
+                          alt={p.nama_rumah} 
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <Building2 size={18} />
+                      )}
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
