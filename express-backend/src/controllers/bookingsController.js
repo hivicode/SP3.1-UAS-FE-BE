@@ -339,6 +339,31 @@ async function updateBookingStatus(req, res, next) {
   }
 }
 
+async function getPublicBookingById(req, res, next) {
+  try {
+    const bookingId = Number(req.params.bookingId);
+    if (!Number.isFinite(bookingId)) {
+      return res.status(400).json({ message: "Inquiry id tidak valid" });
+    }
+
+    const rows = await query(
+      `SELECT b.*, p.nama_rumah, p.alamat, p.kota, p.harga
+       FROM booking b
+       JOIN properti p ON p.kode_rumah = b.kode_rumah
+       WHERE b.id = $1`,
+      [bookingId]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ message: "Inquiry tidak ditemukan" });
+    }
+
+    return res.json(serializeBooking(rows[0]));
+  } catch (error) {
+    return next(error);
+  }
+}
+
 module.exports = {
   listBookings,
   createBooking,
@@ -346,4 +371,5 @@ module.exports = {
   cancelInquiry,
   confirmInquiryPayment,
   updateBookingStatus,
+  getPublicBookingById,
 };

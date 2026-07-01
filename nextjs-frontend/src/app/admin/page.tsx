@@ -16,9 +16,20 @@ import { money } from "@/lib/format";
 import {
   LayoutDashboard, Users, Wallet, Building2, LogOut,
   Plus, Trash2, X, Search, DollarSign, Edit, Upload,
+  Mail, ExternalLink,
 } from "lucide-react";
 
 import "./admin-tailwind.css";
+
+function formatWhatsAppNumber(phone: string): string {
+  let cleaned = phone.replace(/\D/g, "");
+  if (cleaned.startsWith("0")) {
+    cleaned = "62" + cleaned.slice(1);
+  } else if (cleaned.startsWith("8")) {
+    cleaned = "62" + cleaned;
+  }
+  return cleaned;
+}
 
 type AdminView = "dashboard" | "inquiries" | "create" | "finance" | "properties";
 
@@ -819,25 +830,68 @@ export default function AdminPage() {
                         </select>
                       </td>
                       <td className="px-6 py-4 text-right">
-                        {b.status === "closed" && (
-                          <span className="text-xs text-slate-400 font-medium">Deal Selesai</span>
-                        )}
-                        {b.status === "cancelled" && (
-                          <button
-                            disabled
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-200 text-slate-400 text-xs font-bold rounded cursor-not-allowed"
-                          >
-                            <DollarSign size={12} /> Catat Deal Penjualan
-                          </button>
-                        )}
-                        {b.status !== "closed" && b.status !== "cancelled" && (
-                          <button
-                            onClick={() => setDealModalBooking(b)}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded shadow-sm transition-colors"
-                          >
-                            <DollarSign size={12} /> Catat Deal Penjualan
-                          </button>
-                        )}
+                        <div className="flex justify-end gap-2 items-center">
+                          {(b.status === "closed" || b.status === "reserved") && (
+                            <div className="flex items-center gap-1 bg-slate-50 border border-slate-100 rounded-lg p-0.5 mr-2">
+                              <button
+                                onClick={() => {
+                                  const url = `${window.location.origin}/invoice/${b.id}`;
+                                  window.open(url, "_blank");
+                                }}
+                                title="Lihat / Cetak Invoice"
+                                className="p-1 text-slate-500 hover:text-slate-900 hover:bg-white rounded transition-all"
+                              >
+                                <ExternalLink size={12} />
+                              </button>
+                              <button
+                                onClick={() => {
+                                  const waNum = formatWhatsAppNumber(b.telepon);
+                                  const invoiceUrl = `${window.location.origin}/invoice/${b.id}`;
+                                  const text = `Halo ${b.nama_depan} ${b.nama_belakang}, berikut adalah invoice transaksi properti Anda (${b.nama_rumah}): ${invoiceUrl}. Terima kasih!`;
+                                  window.open(`https://wa.me/${waNum}?text=${encodeURIComponent(text)}`, "_blank");
+                                }}
+                                title="Kirim Invoice lewat WhatsApp"
+                                className="p-1 text-emerald-600 hover:text-emerald-900 hover:bg-white rounded transition-all"
+                              >
+                                <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
+                                  <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946C.06 5.348 5.397.01 12.008.01c3.202.001 6.212 1.246 8.477 3.513 2.262 2.268 3.507 5.28 3.505 8.484-.004 6.657-5.34 11.997-11.953 11.997-2.005-.001-3.973-.501-5.734-1.451L0 24zm6.59-4.846c1.6.95 3.188 1.449 4.825 1.451 5.436 0 9.86-4.42 9.864-9.864.002-2.637-1.03-5.118-2.905-6.993-1.876-1.875-4.357-2.903-6.997-2.904-5.439 0-9.865 4.422-9.869 9.865-.001 1.713.457 3.39 1.323 4.877l-1.017 3.714 3.774-1.011zm12.355-6.84c-.266-.134-1.579-.78-1.822-.867-.243-.088-.419-.133-.596.134-.176.265-.68.867-.833 1.043-.153.177-.306.199-.572.066-.265-.134-1.12-.413-2.133-1.317-.788-.703-1.32-1.57-1.475-1.835-.154-.266-.016-.41.117-.542.12-.12.266-.31.399-.465.133-.154.177-.265.265-.443.089-.177.044-.332-.022-.465-.067-.133-.596-1.439-.816-1.97-.216-.518-.456-.447-.625-.456-.16-.008-.344-.01-.527-.01-.184 0-.482.07-.734.344-.252.274-.962.94-.962 2.296 0 1.355.986 2.66 1.123 2.843.138.184 1.942 2.966 4.706 4.16.657.284 1.17.453 1.57.58.66.21 1.26.182 1.734.111.528-.078 1.579-.645 1.802-1.27.222-.625.222-1.16.155-1.27-.066-.111-.243-.199-.51-.332z" />
+                                </svg>
+                              </button>
+                              <button
+                                onClick={() => {
+                                  const invoiceUrl = `${window.location.origin}/invoice/${b.id}`;
+                                  const subject = `Invoice Transaksi Properti - ${b.kode_inquiry}`;
+                                  const body = `Halo ${b.nama_depan} ${b.nama_belakang},\n\nBerikut adalah invoice transaksi properti Anda (${b.nama_rumah}):\n${invoiceUrl}\n\nTerima kasih!`;
+                                  window.open(`mailto:${b.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`, "_blank");
+                                }}
+                                title="Kirim Invoice lewat Email"
+                                className="p-1 text-blue-600 hover:text-blue-900 hover:bg-white rounded transition-all"
+                              >
+                                <Mail size={12} />
+                              </button>
+                            </div>
+                          )}
+
+                          {b.status === "closed" && (
+                            <span className="text-xs text-slate-400 font-medium py-1.5">Deal Selesai</span>
+                          )}
+                          {b.status === "cancelled" && (
+                            <button
+                              disabled
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-200 text-slate-400 text-xs font-bold rounded cursor-not-allowed"
+                            >
+                              <DollarSign size={12} /> Catat Deal Penjualan
+                            </button>
+                          )}
+                          {b.status !== "closed" && b.status !== "cancelled" && (
+                            <button
+                              onClick={() => setDealModalBooking(b)}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded shadow-sm transition-colors"
+                            >
+                              <DollarSign size={12} /> Catat Deal Penjualan
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}
