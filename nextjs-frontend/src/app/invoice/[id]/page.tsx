@@ -6,6 +6,8 @@ import { apiFetch, BookingApi } from "@/lib/api";
 import { money } from "@/lib/format";
 import { Printer, ArrowLeft } from "lucide-react";
 
+import "../../admin/admin-tailwind.css";
+
 export default function InvoicePage() {
   const params = useParams();
   const router = useRouter();

@@ -3,6 +3,7 @@ module.exports = {
   content: [
     "./src/app/admin/**/*.{js,ts,jsx,tsx}",
     "./src/app/inquiry/history/**/*.{js,ts,jsx,tsx}",
+    "./src/app/invoice/**/*.{js,ts,jsx,tsx}",
   ],
   theme: {
     extend: {},
