@@ -154,7 +154,14 @@ async function getFinanceReport(req, res, next) {
         total_pengeluaran: 0,
       };
       const amount = Number(row.jumlah || 0);
-      if (row.tipe === "pemasukan") current.total_pemasukan_manual += amount;
+      if (row.tipe === "pemasukan") {
+        // Exclude manual deal transactions associated with a booking (source_ref starts with 'INQ-')
+        // to prevent double-counting with automatic income calculations (which already count the full property price).
+        const isDealPayoff = row.source_ref && String(row.source_ref).startsWith("INQ-");
+        if (!isDealPayoff) {
+          current.total_pemasukan_manual += amount;
+        }
+      }
       if (row.tipe === "pengeluaran") current.total_pengeluaran += amount;
       manualByMonth.set(month, current);
     });
