@@ -248,6 +248,10 @@ async function cancelInquiry(req, res, next) {
     }
 
     await query("UPDATE booking SET status = 'cancelled' WHERE id = $1", [result.inquiry.id]);
+    await query(
+      "DELETE FROM transaksi_keuangan WHERE source_ref = $1 AND sumber = 'manual'",
+      [result.inquiry.kode_inquiry]
+    );
     const updatedRows = await query(
       `SELECT b.*, p.nama_rumah, p.alamat, p.kota, p.harga
        FROM booking b
@@ -318,14 +322,23 @@ async function updateBookingStatus(req, res, next) {
       return res.status(400).json({ message: "Status tidak valid" });
     }
 
-    const exists = await query("SELECT id FROM booking WHERE id = $1", [bookingId]);
+    const exists = await query("SELECT id, kode_inquiry FROM booking WHERE id = $1", [bookingId]);
     if (exists.length === 0) {
       return res.status(404).json({ message: "Inquiry tidak ditemukan" });
     }
 
+    const booking = exists[0];
     const normalizedStatus =
       newStatus === "pending" ? "new" : newStatus === "confirmed" ? "closed" : newStatus;
     await query("UPDATE booking SET status = $1 WHERE id = $2", [normalizedStatus, bookingId]);
+
+    if (normalizedStatus !== "closed") {
+      await query(
+        "DELETE FROM transaksi_keuangan WHERE source_ref = $1 AND sumber = 'manual'",
+        [booking.kode_inquiry]
+      );
+    }
+
     const rows = await query(
       `SELECT b.*, p.nama_rumah, p.alamat, p.kota, p.harga
        FROM booking b

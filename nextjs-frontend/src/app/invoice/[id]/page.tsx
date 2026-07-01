@@ -90,10 +90,10 @@ export default function InvoicePage() {
       </div>
 
       {/* Invoice Document Card */}
-      <div className="max-w-3xl mx-auto bg-white border border-[#064E3B]/10 shadow-2xl rounded-2xl p-8 md:p-14 print:border-none print:shadow-none print:p-0">
+      <div className="relative max-w-3xl mx-auto bg-white border border-[#064E3B]/10 shadow-2xl rounded-2xl p-8 md:p-14 overflow-hidden print:border-none print:shadow-none print:p-0">
         
         {/* Top Decorative Border */}
-        <div className="h-1.5 w-full bg-[#064E3B] rounded-t-lg -mt-8 md:-mt-14 -mx-8 md:-mx-14 mb-8 md:mb-12 print:hidden" />
+        <div className="absolute top-0 left-0 right-0 h-1.5 bg-[#064E3B] print:hidden" />
 
         {/* Brand Header */}
         <div className="flex flex-col md:flex-row md:justify-between md:items-start border-b border-[#064E3B]/10 pb-8 gap-6">
