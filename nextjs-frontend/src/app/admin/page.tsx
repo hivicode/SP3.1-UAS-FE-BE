@@ -1423,6 +1423,24 @@ export default function AdminPage() {
                 <p className="text-[11px] text-slate-500 font-semibold">{dealModalBooking.nama_rumah} · {dealModalBooking.kota}</p>
               </div>
 
+              {/* Rincian Perhitungan Pembayaran */}
+              <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-4 space-y-2 text-xs text-emerald-800">
+                <h3 className="font-semibold uppercase tracking-wider text-[10px] text-emerald-950">Rincian Pembayaran Properti</h3>
+                <div className="flex justify-between">
+                  <span className="text-emerald-700">Harga Properti:</span>
+                  <span className="font-medium text-emerald-950">{money(dealModalBooking.harga || 0)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-emerald-700">Booking Fee (Telah Dibayar):</span>
+                  <span className="font-medium text-emerald-600">- {money(dealModalBooking.booking_fee || 0)}</span>
+                </div>
+                <div className="border-t border-emerald-200/60 my-1.5" />
+                <div className="flex justify-between text-sm font-bold text-emerald-950">
+                  <span>Jumlah Pelunasan (Deal):</span>
+                  <span>{money(Math.max(0, (dealModalBooking.harga || 0) - (dealModalBooking.booking_fee || 0)))}</span>
+                </div>
+              </div>
+
               <form onSubmit={saveDealTransaction} className="space-y-4">
                 <div>
                   <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">Tanggal Deal</label>
