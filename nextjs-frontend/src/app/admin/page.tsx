@@ -1507,17 +1507,6 @@ export default function AdminPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">Jumlah Deal (Rp)</label>
-                  <input 
-                    type="number" 
-                    value={dealForm.jumlah}
-                    onChange={(e) => setDealForm((p) => ({ ...p, jumlah: e.target.value }))}
-                    placeholder="Contoh: 1200000000"
-                    required
-                    className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-emerald-500 bg-white"
-                  />
-                </div>
-                <div>
                   <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">Kategori</label>
                   <select 
                     value={dealForm.kategori}
