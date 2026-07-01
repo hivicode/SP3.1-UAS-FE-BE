@@ -70,120 +70,136 @@ export default function InvoicePage() {
   const jumlahPelunasan = Math.max(0, propertyPrice - bookingFee);
 
   return (
-    <div className="min-h-screen bg-slate-100 py-8 px-4 print:bg-white print:py-0 print:px-0">
+    <div className="min-h-screen bg-[#f4efe4] text-[#1f2a22] py-12 px-4 print:bg-white print:py-0 print:px-0 font-sans">
       {/* Action Bar (Hidden on print) */}
-      <div className="max-w-3xl mx-auto mb-6 flex justify-between items-center print:hidden">
+      <div className="max-w-3xl mx-auto mb-8 flex justify-between items-center print:hidden">
         <button 
           onClick={() => window.history.back()}
-          className="flex items-center gap-2 text-slate-600 hover:text-slate-950 font-medium text-sm transition-colors"
+          className="flex items-center gap-2 text-[#1f2a22]/70 hover:text-[#1f2a22] font-semibold text-sm transition-colors"
         >
           <ArrowLeft size={16} /> Kembali
         </button>
         <button 
           onClick={handlePrint}
-          className="flex items-center gap-2 px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white font-semibold rounded-lg shadow-sm text-sm transition-colors"
+          className="flex items-center gap-2 px-5 py-2.5 bg-[#064E3B] hover:bg-[#053d2f] text-white font-bold rounded-lg shadow-md text-sm transition-all duration-200"
         >
           <Printer size={16} /> Cetak / Unduh PDF
         </button>
       </div>
 
       {/* Invoice Document Card */}
-      <div className="max-w-3xl mx-auto bg-white border border-slate-200 shadow-xl rounded-2xl p-8 md:p-12 print:border-none print:shadow-none print:p-0">
-        {/* Header */}
-        <div className="flex flex-col md:flex-row md:justify-between md:items-start border-b border-slate-100 pb-8 gap-6">
+      <div className="max-w-3xl mx-auto bg-white border border-[#064E3B]/10 shadow-2xl rounded-2xl p-8 md:p-14 print:border-none print:shadow-none print:p-0">
+        
+        {/* Top Decorative Border */}
+        <div className="h-1.5 w-full bg-[#064E3B] rounded-t-lg -mt-8 md:-mt-14 -mx-8 md:-mx-14 mb-8 md:mb-12 print:hidden" />
+
+        {/* Brand Header */}
+        <div className="flex flex-col md:flex-row md:justify-between md:items-start border-b border-[#064E3B]/10 pb-8 gap-6">
           <div>
-            <h1 className="text-2xl font-bold font-serif text-emerald-900 tracking-wide">PlanB Property</h1>
-            <p className="text-xs text-slate-400 mt-1 font-semibold">Solusi Hunian Nyaman & Terpercaya</p>
+            <h1 className="text-3xl font-bold font-serif text-[#064E3B] tracking-wide">PlanB Property</h1>
+            <p className="text-xs text-[#1f2a22]/60 mt-1 font-semibold uppercase tracking-wider">Luxury Residential & Real Estate</p>
           </div>
           <div className="text-left md:text-right">
-            <h2 className="text-lg font-bold text-slate-800 uppercase tracking-wider">INVOICE</h2>
-            <p className="text-sm font-mono font-bold text-emerald-600 mt-1">{booking.kode_inquiry}</p>
-            <p className="text-xs text-slate-400 mt-1">Tanggal Cetak: {new Date().toLocaleDateString("id-ID", { dateStyle: "long" })}</p>
+            <h2 className="text-lg font-bold text-[#064E3B] uppercase tracking-widest font-serif">INVOICE</h2>
+            <p className="text-sm font-mono font-bold text-[#1f2a22] mt-1.5">{booking.kode_inquiry}</p>
+            <p className="text-xs text-[#1f2a22]/50 mt-1 font-medium">Tanggal Cetak: {new Date().toLocaleDateString("id-ID", { dateStyle: "long" })}</p>
           </div>
         </div>
 
         {/* Client & Booking Info */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 py-8 border-b border-slate-100 text-xs">
-          <div>
-            <h3 className="font-bold text-slate-400 uppercase tracking-wider mb-2">Diberikan Kepada</h3>
-            <p className="text-sm font-bold text-slate-950">{booking.nama_depan} {booking.nama_belakang}</p>
-            <p className="text-slate-500 mt-1 font-medium">Email: {booking.email}</p>
-            <p className="text-slate-500 mt-1 font-medium">Telepon: +{booking.telepon}</p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 py-10 border-b border-[#064E3B]/10 text-xs">
+          <div className="space-y-2">
+            <h3 className="font-bold text-[#064E3B] uppercase tracking-wider text-[10px] mb-3">Diberikan Kepada:</h3>
+            <p className="text-base font-bold text-[#1f2a22] font-serif">{booking.nama_depan} {booking.nama_belakang}</p>
+            <div className="space-y-1 text-[#1f2a22]/70 font-medium">
+              <p>Email: {booking.email}</p>
+              <p>Telepon: +{booking.telepon}</p>
+            </div>
           </div>
-          <div className="md:text-right">
-            <h3 className="font-bold text-slate-400 uppercase tracking-wider mb-2">Detail Transaksi</h3>
-            <p className="text-sm font-bold text-slate-950">{booking.nama_rumah}</p>
-            <p className="text-slate-500 mt-1 font-medium">{booking.alamat}, {booking.kota}</p>
-            <p className="text-slate-500 mt-1 font-medium">Metode Pembayaran: {booking.metode_pembayaran.toUpperCase()}</p>
-            <p className="mt-2">
-              <span className={`inline-block px-2.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
-                booking.status === "closed" ? "bg-emerald-100 text-emerald-800" :
-                booking.status === "reserved" ? "bg-blue-100 text-blue-800" :
+          <div className="md:text-right space-y-2">
+            <h3 className="font-bold text-[#064E3B] uppercase tracking-wider text-[10px] mb-3">Detail Transaksi Properti:</h3>
+            <p className="text-base font-bold text-[#064E3B] font-serif">{booking.nama_rumah}</p>
+            <div className="space-y-1 text-[#1f2a22]/70 font-medium">
+              <p>{booking.alamat}, {booking.kota}</p>
+              <p>Metode Pembayaran: <span className="font-bold text-[#1f2a22]">{booking.metode_pembayaran.toUpperCase()}</span></p>
+            </div>
+            <div className="pt-2">
+              <span className={`inline-block px-3 py-1 rounded-md text-[10px] font-bold uppercase tracking-widest ${
+                booking.status === "closed" ? "bg-[#064E3B] text-[#f4efe4]" :
+                booking.status === "reserved" ? "bg-emerald-100 text-[#064E3B]" :
                 booking.status === "cancelled" ? "bg-red-100 text-red-800" :
-                "bg-amber-100 text-amber-800"
+                "bg-amber-100 text-amber-900"
               }`}>
                 {booking.status === "closed" ? "Sold / Lunas" :
                  booking.status === "reserved" ? "Booked / DP Paid" :
                  booking.status === "cancelled" ? "Batal" :
                  booking.status}
               </span>
-            </p>
+            </div>
           </div>
         </div>
 
         {/* Pricing Table */}
-        <div className="py-8">
+        <div className="py-10">
           <table className="w-full text-left border-collapse text-xs">
             <thead>
-              <tr className="border-b border-slate-200 text-slate-400 font-bold uppercase tracking-wider">
-                <th className="pb-3 font-semibold">Deskripsi Transaksi</th>
-                <th className="pb-3 text-right font-semibold">Jumlah</th>
+              <tr className="bg-[#064E3B] text-[#f4efe4] font-serif font-bold uppercase tracking-wider">
+                <th className="p-3 pl-4 rounded-l-lg font-semibold">Deskripsi Transaksi</th>
+                <th className="p-3 pr-4 text-right rounded-r-lg font-semibold">Jumlah</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
-              <tr className="text-slate-800">
-                <td className="py-4">
-                  <p className="font-bold text-sm text-slate-900">Pembayaran Properti – {booking.nama_rumah}</p>
-                  <p className="text-slate-500 mt-1">Harga kesepakatan properti di {booking.kota}.</p>
+            <tbody className="divide-y divide-[#064E3B]/10">
+              <tr className="text-[#1f2a22]">
+                <td className="p-4 pl-4">
+                  <p className="font-bold text-sm text-[#1f2a22] font-serif">Pembayaran Properti – {booking.nama_rumah}</p>
+                  <p className="text-[#1f2a22]/60 mt-1 font-medium">Harga kesepakatan unit properti eksklusif di {booking.kota}.</p>
                 </td>
-                <td className="py-4 text-right font-bold text-sm text-slate-950">{money(propertyPrice)}</td>
+                <td className="p-4 pr-4 text-right font-bold text-sm text-[#1f2a22] font-mono">{money(propertyPrice)}</td>
               </tr>
-              <tr className="text-slate-800">
-                <td className="py-4">
-                  <p className="font-bold text-slate-900">Booking Fee / Uang Muka</p>
-                  <p className="text-slate-500 mt-1">Uang muka jaminan pemesanan unit properti.</p>
+              <tr className="text-[#1f2a22]">
+                <td className="p-4 pl-4">
+                  <p className="font-bold text-[#1f2a22] font-serif">Booking Fee (Uang Muka)</p>
+                  <p className="text-[#1f2a22]/60 mt-1 font-medium">Uang jaminan pemesanan & penguncian unit properti.</p>
                 </td>
-                <td className="py-4 text-right font-medium text-emerald-600">- {money(bookingFee)}</td>
+                <td className="p-4 pr-4 text-right font-bold text-emerald-700 font-mono">- {money(bookingFee)}</td>
               </tr>
             </tbody>
           </table>
         </div>
 
         {/* Calculation and Total */}
-        <div className="border-t border-slate-200 pt-6">
-          <div className="w-full md:w-80 ml-auto space-y-3 text-xs">
-            <div className="flex justify-between text-slate-500">
-              <span>Total Harga Properti:</span>
-              <span className="font-medium">{money(propertyPrice)}</span>
+        <div className="border-t border-[#064E3B]/10 pt-8">
+          <div className="w-full md:w-80 ml-auto space-y-3.5 text-xs">
+            <div className="flex justify-between text-[#1f2a22]/70 font-medium">
+              <span>Total Harga Unit:</span>
+              <span className="font-bold text-[#1f2a22] font-mono">{money(propertyPrice)}</span>
             </div>
-            <div className="flex justify-between text-slate-500">
+            <div className="flex justify-between text-[#1f2a22]/70 font-medium">
               <span>Uang Muka (Booking Fee):</span>
-              <span className="font-medium text-emerald-600">- {money(bookingFee)}</span>
+              <span className="font-bold text-emerald-700 font-mono">- {money(bookingFee)}</span>
             </div>
-            <div className="border-t border-slate-100 my-2" />
+            <div className="border-t border-[#064E3B]/10 my-3" />
             
-            <div className="flex justify-between text-sm font-bold text-slate-950">
-              <span>{isClosed ? "Total Pelunasan Terbayar:" : "Sisa Pelunasan (Due):"}</span>
-              <span className="text-emerald-800 text-base">{money(jumlahPelunasan)}</span>
+            <div className="flex justify-between text-sm font-bold text-[#1f2a22]">
+              <span className="font-serif text-[#064E3B]">{isClosed ? "Total Pelunasan Terbayar:" : "Sisa Pelunasan (Due):"}</span>
+              <span className="text-[#064E3B] text-lg font-mono font-extrabold">{money(jumlahPelunasan)}</span>
             </div>
           </div>
         </div>
 
+        {/* Stamp or Note Area */}
+        <div className="mt-12 bg-[#f4efe4]/30 border border-[#064E3B]/5 rounded-xl p-4 text-center">
+          <p className="text-[10px] font-bold text-[#064E3B] uppercase tracking-widest font-serif">PlanB Verification Statement</p>
+          <p className="text-[9px] text-[#1f2a22]/60 mt-1 font-medium">
+            Pembayaran dinyatakan sah apabila dana telah diterima di rekening resmi PlanB Property dan telah diverifikasi oleh bagian keuangan.
+          </p>
+        </div>
+
         {/* Footer Note */}
-        <div className="mt-16 border-t border-slate-100 pt-8 text-center text-[10px] text-slate-400 space-y-1 font-medium font-sans">
-          <p>Terima kasih telah mempercayakan investasi properti Anda bersama PlanB Property.</p>
-          <p>Invoice ini sah dihasilkan secara elektronik oleh sistem PlanB.</p>
-          <p>Hubungi Customer Support di support@planbproperty.co.id jika memiliki pertanyaan.</p>
+        <div className="mt-12 border-t border-[#064E3B]/10 pt-8 text-center text-[10px] text-[#1f2a22]/40 space-y-1 font-medium">
+          <p className="font-serif font-bold text-[#064E3B]/60 tracking-wider">PLANB PROPERTY GROUP</p>
+          <p>Invoice ini sah dihasilkan secara elektronik oleh sistem manajemen PlanB Property.</p>
+          <p>Hubungi CS kami di support@planbproperty.co.id untuk layanan & bantuan administrasi.</p>
         </div>
       </div>
     </div>
