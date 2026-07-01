@@ -45,6 +45,7 @@ export type BookingApi = {
   nama_rumah: string;
   alamat: string;
   kota: string;
+  harga?: number;
   can_cancel?: boolean;
   can_confirm_payment?: boolean;
   next_action?: string;

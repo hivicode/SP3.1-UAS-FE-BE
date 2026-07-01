@@ -94,6 +94,7 @@ function serializeBooking(row) {
     nama_rumah: row.nama_rumah,
     alamat: row.alamat,
     kota: row.kota,
+    harga: row.harga !== undefined ? Number(row.harga) : 0,
   };
 }
 

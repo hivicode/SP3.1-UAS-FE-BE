@@ -87,7 +87,7 @@ function serializePublicInquiry(row) {
 
 async function findInquiryByCode(code) {
   const rows = await query(
-    `SELECT b.*, p.nama_rumah, p.alamat, p.kota
+    `SELECT b.*, p.nama_rumah, p.alamat, p.kota, p.harga
      FROM booking b
      LEFT JOIN properti p ON p.kode_rumah = b.kode_rumah
      WHERE UPPER(COALESCE(b.kode_inquiry, 'INQ-' || LPAD(b.id::text, 6, '0'))) = $1
@@ -134,7 +134,7 @@ async function listBookings(_req, res, next) {
   try {
     await cancelExpiredBookings();
     const rows = await query(
-      `SELECT b.*, p.nama_rumah, p.alamat, p.kota
+      `SELECT b.*, p.nama_rumah, p.alamat, p.kota, p.harga
        FROM booking b
        JOIN properti p ON p.kode_rumah = b.kode_rumah
        ORDER BY b.dibuat_pada DESC`
@@ -204,7 +204,7 @@ async function createBooking(req, res, next) {
 
     const bookingId = insertResult.rows[0].id;
     const rowsResult = await client.query(
-      `SELECT b.*, p.nama_rumah, p.alamat, p.kota
+      `SELECT b.*, p.nama_rumah, p.alamat, p.kota, p.harga
        FROM booking b
        JOIN properti p ON p.kode_rumah = b.kode_rumah
        WHERE b.id = $1`,
@@ -249,7 +249,7 @@ async function cancelInquiry(req, res, next) {
 
     await query("UPDATE booking SET status = 'cancelled' WHERE id = $1", [result.inquiry.id]);
     const updatedRows = await query(
-      `SELECT b.*, p.nama_rumah, p.alamat, p.kota
+      `SELECT b.*, p.nama_rumah, p.alamat, p.kota, p.harga
        FROM booking b
        LEFT JOIN properti p ON p.kode_rumah = b.kode_rumah
        WHERE b.id = $1`,
@@ -293,7 +293,7 @@ async function confirmInquiryPayment(req, res, next) {
       result.inquiry.id,
     ]);
     const updatedRows = await query(
-      `SELECT b.*, p.nama_rumah, p.alamat, p.kota
+      `SELECT b.*, p.nama_rumah, p.alamat, p.kota, p.harga
        FROM booking b
        LEFT JOIN properti p ON p.kode_rumah = b.kode_rumah
        WHERE b.id = $1`,
@@ -327,7 +327,7 @@ async function updateBookingStatus(req, res, next) {
       newStatus === "pending" ? "new" : newStatus === "confirmed" ? "closed" : newStatus;
     await query("UPDATE booking SET status = $1 WHERE id = $2", [normalizedStatus, bookingId]);
     const rows = await query(
-      `SELECT b.*, p.nama_rumah, p.alamat, p.kota
+      `SELECT b.*, p.nama_rumah, p.alamat, p.kota, p.harga
        FROM booking b
        JOIN properti p ON p.kode_rumah = b.kode_rumah
        WHERE b.id = $1`,

@@ -149,6 +149,18 @@ export default function AdminPage() {
     deskripsi: "",
   });
 
+  useEffect(() => {
+    if (dealModalBooking) {
+      const defaultAmount = Math.max(0, (dealModalBooking.harga || 0) - (dealModalBooking.booking_fee || 0));
+      setDealForm({
+        tanggal: new Date().toISOString().slice(0, 10),
+        kategori: "Penjualan properti",
+        jumlah: defaultAmount > 0 ? String(defaultAmount) : "",
+        deskripsi: `Deal manual – ${dealModalBooking.nama_depan} ${dealModalBooking.nama_belakang}`,
+      });
+    }
+  }, [dealModalBooking]);
+
   const isEditing = Boolean(editCode);
 
   const loadFinance = useCallback(async (authToken: string, year = financeYear) => {
